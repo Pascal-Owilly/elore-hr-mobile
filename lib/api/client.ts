@@ -5,88 +5,54 @@ import NetInfo from '@react-native-community/netinfo';
 import { KenyaConstants } from '@constants/KenyaConstants';
 import { API_ENDPOINTS } from './endpoints';
 
-// Get API base URL - FIXED: Use direct URL or environment variable
-// Option 1: Direct URL (simplest for now)
-// const API_BASE_URL = 'http://localhost:8000'; // For simulator/emulator
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8000';
-// Option 2: From environment (if you set it in app.config.js)
-// const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL || 'http://localhost:8000';
-
-// Option 3: From Constants (if you set it in app.config.js)
-// const API_BASE_URL = Constants.expoConfig?.extra?.API_BASE_URL || 'http://localhost:8000';
-
 console.log('🌐 API Configuration Debug:');
-console.log('1. API_BASE_URL set to:', API_BASE_URL);
-console.log('2. Full API endpoint:', `${API_BASE_URL}/api`);
-console.log('3. Trying Django login endpoint:', `${API_BASE_URL}/api${API_ENDPOINTS.AUTH.LOGIN}`);
+console.log('1. API_BASE_URL set to:', process.env.EXPO_PUBLIC_API_BASE_URL);
+console.log('2. Full API endpoint:', `${process.env.EXPO_PUBLIC_API_BASE_URL}/api`);
+console.log('3. Trying Django login endpoint:', `${process.env.EXPO_PUBLIC_API_BASE_URL}/api/auth/login/`);
 console.log('4. Constants.expoConfig?.extra:', Constants.expoConfig?.extra);
 console.log('5. process.env.EXPO_PUBLIC_API_BASE_URL:', process.env.EXPO_PUBLIC_API_BASE_URL);
 
-// Test function to check if backend is reachable
-export const testBackendConnection = async (): Promise<{
-  success: boolean;
-  message: string;
-  url: string;
-  status?: number;
-}> => {
-  try {
-    console.log(`🔗 Testing connection to: ${API_BASE_URL}`);
-    
-    // First test if server is reachable
-    const pingResponse = await axios.get(API_BASE_URL, { timeout: 5000 });
-    console.log('✅ Server ping successful:', pingResponse.status);
-    
-    // Then test API endpoint
-    const apiResponse = await axios.get(`${API_BASE_URL}/api`, { timeout: 5000 });
-    console.log('✅ API endpoint successful:', apiResponse.status);
-    
-    return {
-      success: true,
-      message: `Connected to ${API_BASE_URL}`,
-      url: API_BASE_URL,
-      status: apiResponse.status,
-    };
-  } catch (error: any) {
-    console.error('❌ Connection test failed:', {
-      url: API_BASE_URL,
-      error: error.message,
-      code: error.code,
-    });
-    
-    return {
-      success: false,
-      message: `Failed to connect to ${API_BASE_URL}. Error: ${error.message}`,
-      url: API_BASE_URL,
-      status: error.response?.status,
-    };
-  }
-};
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8000';
+
 
 // Create axios instance with Django backend configuration
 export const api = axios.create({
   baseURL: `${API_BASE_URL}/api`,
-  timeout: 30000,
+  timeout: parseInt(process.env.EXPO_PUBLIC_API_TIMEOUT || '30000'),
   headers: {
     'Content-Type': 'application/json',
     'Accept': 'application/json',
   },
 });
 
+
 // Add request logging
 api.interceptors.request.use(
   (config) => {
-    console.log(`📡 [API Request] ${config.method?.toUpperCase()} ${config.baseURL}${config.url}`);
-    console.log('Headers:', config.headers);
+    const fullUrl = `${config.baseURL}${config.url}`;
+    console.log(`📡 [API Request] ${config.method?.toUpperCase()} ${fullUrl}`);
+    console.log('🔑 Auth Header:', config.headers.Authorization ? 'Present' : 'Missing');
+    console.log('📦 Request Headers:', {
+      'Content-Type': config.headers['Content-Type'],
+      'Accept': config.headers['Accept'],
+      'X-Device-Id': config.headers['X-Device-Id'],
+      'X-App-Version': config.headers['X-App-Version'],
+    });
+    
     if (config.data) {
-      console.log('Data:', JSON.stringify(config.data).substring(0, 200) + '...');
-    }
+      console.log('📝 Request Data:', typeof config.data === 'object' ? 
+        JSON.stringify(config.data).substring(0, 200) + '...' : 
+        config.data);
+    } 
+    
     return config;
   },
   (error) => {
-    console.error('❌ [API Request Error]', error);
+    console.error('❌ [API Request Setup Error]', error);
     return Promise.reject(error);
   }
 );
+
 
 // Add response logging
 api.interceptors.response.use(

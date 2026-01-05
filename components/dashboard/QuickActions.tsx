@@ -14,6 +14,7 @@ interface Action {
   id: string;
   title: string;
   icon: string;
+  iconType?: string; // Make this optional
   color: string;
   onPress: () => void;
   disabled?: boolean;
@@ -35,7 +36,7 @@ export const QuickActions: React.FC<QuickActionsProps> = ({ actions }) => {
       >
         {actions.map((action) => (
           <TouchableOpacity
-            key={action.id} // Add key here
+            key={action.id}
             style={[
               styles.actionButton,
               { backgroundColor: action.color },
@@ -47,7 +48,7 @@ export const QuickActions: React.FC<QuickActionsProps> = ({ actions }) => {
           >
             <Icon
               name={action.icon}
-              type="material-community"
+              type={action.iconType || 'material-community'} // Use iconType if provided
               size={24}
               color={Colors.white}
             />

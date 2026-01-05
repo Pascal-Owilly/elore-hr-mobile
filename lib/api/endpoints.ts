@@ -3,6 +3,7 @@ export const API_ENDPOINTS = {
   // Authentication & Users (from users/urls.py)
   AUTH: {
     LOGIN: '/auth/login/',
+    LOGOUT: '/auth/logout/', // Add this line
     REGISTER: '/auth/register/',
     REFRESH_TOKEN: '/auth/token/refresh/',
     CHANGE_PASSWORD: '/auth/change-password/',
@@ -17,7 +18,7 @@ export const API_ENDPOINTS = {
   EMPLOYEES: {
     BASE: '/employees/employees/',
     PROFILE: '/employees/me/',
-    DASHBOARD: '/employees/dashboard/',
+    // DASHBOARD: '/employees/dashboard/',
     BULK_CREATE: '/employees/bulk-create/',
     DOCUMENTS: '/employees/documents/',
     EMERGENCY_CONTACTS: '/employees/emergency-contacts/',
@@ -26,7 +27,7 @@ export const API_ENDPOINTS = {
   },
 
   // Attendance (from attendance/urls.py)
-  ATTENDANCE: {
+    ATTENDANCE: {
     CHECK_IN: '/attendance/check-in/',
     CHECK_OUT: '/attendance/check-out/',
     TODAY: '/attendance/today/',
@@ -35,7 +36,7 @@ export const API_ENDPOINTS = {
     SUMMARY: '/attendance/summary/',
     OFFLINE: '/attendance/offline/',
     VERIFY_GEOFENCE: '/attendance/verify-geofence/',
-  },
+},
 
   // Leaves (from leaves/urls.py)
   LEAVES: {
@@ -45,7 +46,7 @@ export const API_ENDPOINTS = {
     APPROVALS: '/leaves/approvals/',
     HOLIDAYS: '/leaves/holidays/',
     POLICIES: '/leaves/policies/',
-    DASHBOARD: '/leaves/dashboard/',
+    // DASHBOARD: '/leaves/dashboard/',
     KENYA_RULES: '/leaves/kenya-rules/',
     CALENDAR: '/leaves/calendar/',
     REPORT: '/leaves/report/',
@@ -70,7 +71,7 @@ export const API_ENDPOINTS = {
     TEMPLATES: '/contracts/templates/',
     AMENDMENTS: '/contracts/amendments/',
     BULK_CONTRACTS: '/contracts/bulk-contracts/',
-    DASHBOARD: '/contracts/dashboard/',
+    // DASHBOARD: '/contracts/dashboard/',
   },
 
   // Organizations (from organizations/urls.py)
@@ -99,7 +100,7 @@ export const API_ENDPOINTS = {
     TEMPLATES: '/reports/templates/',
     GENERATED: '/reports/generated/',
     SCHEDULES: '/reports/schedules/',
-    DASHBOARDS: '/reports/dashboards/',
+    // DASHBOARDS: '/reports/dashboards/',
     WIDGETS: '/reports/widgets/',
     STATS: '/reports/stats/',
     QUICK_REPORTS: '/reports/quick-reports/',

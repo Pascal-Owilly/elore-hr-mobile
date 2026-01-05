@@ -1,7 +1,7 @@
-// components/dashboard/LeaveBalanceCard.tsx
+// components/dashboard/LeaveBalanceCard.tsx - FIXED VERSION
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { useTheme } from '@/components/theme/ThemeProvider';
+import { Colors } from '@/constants/Colors'; // Add this import
 import { Layout } from '@/constants/Layout';
 import { Icon } from '@/components/ui/Icon';
 
@@ -21,12 +21,25 @@ export interface LeaveBalanceCardProps {
 }
 
 export const LeaveBalanceCard: React.FC<LeaveBalanceCardProps> = ({
-  balances = [], // Default value here in the function parameters
+  balances = [],
   onApplyLeave,
   onViewDetails,
   title = 'Leave Balance',
 }) => {
-  const { colors } = useTheme();
+  // Remove useTheme() and use Colors directly
+  const colors = {
+    card: Colors.white,
+    text: Colors.textPrimary,
+    primary: Colors.primaryBlue500,
+    success: Colors.success500,
+    error: Colors.danger500,
+    info: Colors.info500,
+    secondary: Colors.secondary500,
+    warning: Colors.warning500,
+    textSecondary: Colors.textSecondary,
+    border: Colors.borderLight,
+    white: Colors.white,
+  };
 
   const getLeaveTypeIcon = (type: string) => {
     switch (type) {

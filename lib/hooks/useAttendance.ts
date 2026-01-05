@@ -1,195 +1,209 @@
 // lib/hooks/useAttendance.ts
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useAuth } from './useAuth';
+import { api } from '@lib/api/client';
 
 export interface AttendanceRecord {
   id: string;
-  userId: string;
   date: string;
-  checkIn: string;
-  checkOut?: string;
-  status: 'present' | 'absent' | 'late' | 'half-day' | 'holiday';
-  totalHours?: number;
-  overtime?: number;
-  location?: {
-    latitude: number;
-    longitude: number;
-    address?: string;
+  check_in_time?: string;
+  check_out_time?: string;
+  status: 'PRESENT' | 'LATE' | 'ABSENT' | 'ON_LEAVE';
+  total_hours: number;
+  overtime_hours: number;
+  is_within_geofence: boolean;
+  check_in_location?: {
+    type: string;
+    coordinates: [number, number];
   };
-  notes?: string;
+  check_out_location?: {
+    type: string;
+    coordinates: [number, number];
+  };
 }
 
 export interface AttendanceStats {
-  totalPresent: number;
-  totalAbsent: number;
-  totalLate: number;
-  totalHalfDay: number;
-  averageHours: number;
-  totalOvertime: number;
+  period: string;
+  start_date: string;
+  end_date: string;
+  total_days: number;
+  present_days: number;
+  absent_days: number;
+  late_days: number;
+  total_hours: number;
+  overtime_hours: number;
+  attendance_rate: number;
+}
+
+interface CheckInData {
+  latitude: number;
+  longitude: number;
+  notes?: string;
+}
+
+interface CheckOutData {
+  latitude: number;
+  longitude: number;
+  notes?: string;
+}
+
+interface CorrectionRequest {
+  date: string;
+  requested_check_in?: string;
+  requested_check_out?: string;
+  reason: string;
 }
 
 export const useAttendance = () => {
-  const { token, user } = useAuth();
   const queryClient = useQueryClient();
 
   // Fetch today's attendance
-  const getTodayAttendance = useQuery({
-    queryKey: ['attendance', 'today', user?.id],
+  const todaysAttendance = useQuery({
+    queryKey: ['attendance', 'today'],
     queryFn: async () => {
-      // TODO: Replace with your actual API endpoint
-      const response = await fetch('http://your-api-url/api/attendance/today', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch today\'s attendance');
-      }
-      
-      return response.json();
+      const response = await api.get('/attendance/today/');
+      return response.data;
     },
-    enabled: !!token && !!user,
+    retry: 1,
   });
 
   // Fetch attendance records for a date range
   const getAttendanceRecords = (startDate: string, endDate: string) => {
     return useQuery({
-      queryKey: ['attendance', 'records', startDate, endDate, user?.id],
+      queryKey: ['attendance', 'records', startDate, endDate],
       queryFn: async () => {
-        const response = await fetch(
-          `http://your-api-url/api/attendance?startDate=${startDate}&endDate=${endDate}`,
-          {
-            headers: {
-              'Authorization': `Bearer ${token}`,
-            },
-          }
-        );
-        
-        if (!response.ok) {
-          throw new Error('Failed to fetch attendance records');
-        }
-        
-        return response.json();
+        const response = await api.get('/attendance/list/', {
+          params: { start_date: startDate, end_date: endDate },
+        });
+        return response.data;
       },
-      enabled: !!token && !!user,
     });
   };
 
   // Fetch attendance statistics
-  const getAttendanceStats = (month: string, year: string) => {
+  const getAttendanceStats = (period: string = 'month') => {
     return useQuery({
-      queryKey: ['attendance', 'stats', month, year, user?.id],
+      queryKey: ['attendance', 'stats', period],
       queryFn: async () => {
-        const response = await fetch(
-          `http://your-api-url/api/attendance/stats?month=${month}&year=${year}`,
-          {
-            headers: {
-              'Authorization': `Bearer ${token}`,
-            },
-          }
-        );
-        
-        if (!response.ok) {
-          throw new Error('Failed to fetch attendance statistics');
-        }
-        
-        return response.json();
+        const response = await api.get('/attendance/summary/', {
+          params: { period },
+        });
+        return response.data;
       },
-      enabled: !!token && !!user,
+    });
+  };
+
+  // Fetch monthly attendance data
+  const getMonthlyAttendance = (month: string) => {
+    return useQuery({
+      queryKey: ['attendance', 'monthly', month],
+      queryFn: async () => {
+        const response = await api.get('/attendance/monthly/', {
+          params: { month },
+        });
+        return response.data;
+      },
     });
   };
 
   // Check-in mutation
   const checkInMutation = useMutation({
-    mutationFn: async (data: { location?: { latitude: number; longitude: number; address?: string }; notes?: string }) => {
-      const response = await fetch('http://your-api-url/api/attendance/check-in', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data),
+    mutationFn: async (data: CheckInData) => {
+      const response = await api.post('/attendance/check-in/', {
+        latitude: data.latitude,
+        longitude: data.longitude,
+        notes: data.notes,
       });
-      
-      if (!response.ok) {
-        throw new Error('Failed to check in');
-      }
-      
-      return response.json();
+      return response.data;
     },
     onSuccess: () => {
+      // Invalidate relevant queries
       queryClient.invalidateQueries({ queryKey: ['attendance', 'today'] });
       queryClient.invalidateQueries({ queryKey: ['attendance', 'stats'] });
+      queryClient.invalidateQueries({ queryKey: ['attendance', 'monthly'] });
     },
   });
 
   // Check-out mutation
   const checkOutMutation = useMutation({
-    mutationFn: async (data: { location?: { latitude: number; longitude: number; address?: string }; notes?: string }) => {
-      const response = await fetch('http://your-api-url/api/attendance/check-out', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data),
+    mutationFn: async (data: CheckOutData) => {
+      const response = await api.post('/attendance/check-out/', {
+        latitude: data.latitude,
+        longitude: data.longitude,
+        notes: data.notes,
       });
-      
-      if (!response.ok) {
-        throw new Error('Failed to check out');
-      }
-      
-      return response.json();
+      return response.data;
     },
     onSuccess: () => {
+      // Invalidate relevant queries
       queryClient.invalidateQueries({ queryKey: ['attendance', 'today'] });
       queryClient.invalidateQueries({ queryKey: ['attendance', 'stats'] });
+      queryClient.invalidateQueries({ queryKey: ['attendance', 'monthly'] });
     },
   });
 
   // Request attendance correction
   const requestCorrectionMutation = useMutation({
-    mutationFn: async (data: { date: string; requestedCheckIn?: string; requestedCheckOut?: string; reason: string }) => {
-      const response = await fetch('http://your-api-url/api/attendance/correction-request', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data),
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to request attendance correction');
-      }
-      
-      return response.json();
+    mutationFn: async (data: CorrectionRequest) => {
+      // Note: You need to create this endpoint in Django
+      const response = await api.post('/attendance/correction/', data);
+      return response.data;
     },
   });
 
+  // Submit offline attendance
+  const submitOfflineAttendance = useMutation({
+    mutationFn: async (data: any) => {
+      const response = await api.post('/attendance/offline/', data);
+      return response.data;
+    },
+  });
+
+  // Verify geofence
+  const verifyGeofence = async (latitude: number, longitude: number, branchId?: string) => {
+    const response = await api.post('/attendance/verify-geofence/', {
+      latitude,
+      longitude,
+      branch_id: branchId,
+    });
+    return response.data;
+  };
+
   return {
     // Queries
-    todayAttendance: getTodayAttendance,
+    todaysAttendance: todaysAttendance.data,
+    todaysAttendanceLoading: todaysAttendance.isLoading,
+    todaysAttendanceError: todaysAttendance.error,
+    refetchToday: todaysAttendance.refetch,
+    
     getAttendanceRecords,
     getAttendanceStats,
+    getMonthlyAttendance,
     
     // Mutations
     checkIn: checkInMutation.mutate,
     checkInAsync: checkInMutation.mutateAsync,
     isCheckingIn: checkInMutation.isPending,
+    checkInError: checkInMutation.error,
     
     checkOut: checkOutMutation.mutate,
     checkOutAsync: checkOutMutation.mutateAsync,
     isCheckingOut: checkOutMutation.isPending,
+    checkOutError: checkOutMutation.error,
     
     requestCorrection: requestCorrectionMutation.mutate,
     requestCorrectionAsync: requestCorrectionMutation.mutateAsync,
     isRequestingCorrection: requestCorrectionMutation.isPending,
     
-    // Status
-    isLoading: getTodayAttendance.isLoading,
-    isError: getTodayAttendance.isError,
-    error: getTodayAttendance.error,
+    submitOfflineAttendance: submitOfflineAttendance.mutate,
+    submitOfflineAttendanceAsync: submitOfflineAttendance.mutateAsync,
+    isSubmittingOffline: submitOfflineAttendance.isPending,
+    
+    // Helper functions
+    verifyGeofence,
+    
+    // Combined status
+    isLoading: todaysAttendance.isLoading,
+    isError: todaysAttendance.isError,
+    error: todaysAttendance.error,
   };
 };

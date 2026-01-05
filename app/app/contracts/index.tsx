@@ -26,7 +26,7 @@ export default function ContractsScreen() {
     <ScrollView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.title}>Contracts</Text>
+        <Text style={styles.title}>Contract</Text>
         <Text style={styles.subtitle}>Manage your employment contracts</Text>
       </View>
 

@@ -1,5 +1,5 @@
 import React, { createContext, useContext, ReactNode, useState, useEffect } from 'react';
-import { useRouter } from 'expo-router';
+import { router } from 'expo-router'; // CHANGE: Import router directly
 import * as SecureStore from 'expo-secure-store';
 import { api } from '@lib/api/client';
 import { API_ENDPOINTS } from '@lib/api/endpoints';
@@ -21,7 +21,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [employee, setEmployee] = useState<any>(null);
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const router = useRouter();
 
   useEffect(() => {
     loadAuthState();
@@ -48,28 +47,50 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const login = async (email: string, password: string) => {
     try {
       setIsLoading(true);
+      console.log('🔐 Attempting login for:', email);
+      
       const response = await api.post(API_ENDPOINTS.AUTH.LOGIN, {
         email,
         password,
       });
       
       const { access, refresh, user } = response.data;
+      console.log('✅ Login successful for:', user.email);
       
+      // Store tokens and user data
       await Promise.all([
         SecureStore.setItemAsync('access_token', access),
         SecureStore.setItemAsync('refresh_token', refresh),
         SecureStore.setItemAsync('user_data', JSON.stringify(user)),
       ]);
       
+      // Update state
       setToken(access);
       setUser(user);
       
+      console.log('🔄 Navigation to app...');
+      
+      // FIX: Navigate to app after successful login
+      // Use replace to prevent going back to login
+      router.replace('/app'); // Or '/(app)', '/(tabs)', depending on your setup
+      
       return { success: true };
+      
     } catch (error: any) {
-      console.error('Login error:', error);
+      console.error('❌ Login error:', error);
+      
+      let errorMessage = 'Login failed. Please try again.';
+      if (error.response?.status === 401) {
+        errorMessage = 'Invalid email or password';
+      } else if (error.response?.status === 400) {
+        errorMessage = 'Invalid credentials';
+      } else if (error.response?.data?.detail) {
+        errorMessage = error.response.data.detail;
+      }
+      
       return { 
         success: false, 
-        error: error.response?.data?.detail || 'Login failed' 
+        error: errorMessage
       };
     } finally {
       setIsLoading(false);
@@ -78,6 +99,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const logout = async () => {
     try {
+      setIsLoading(true);
+      
       await Promise.all([
         SecureStore.deleteItemAsync('access_token'),
         SecureStore.deleteItemAsync('refresh_token'),
@@ -89,9 +112,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setUser(null);
       setEmployee(null);
       
+      console.log('✅ Logout successful');
+      
+      // Navigate to login screen
       router.replace('/auth/login');
+      
     } catch (error) {
       console.error('Logout error:', error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
