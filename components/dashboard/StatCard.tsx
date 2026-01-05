@@ -1,0 +1,145 @@
+// components/dashboard/StatCard.tsx
+import React from 'react';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { useTheme } from '@/components/theme/ThemeProvider';
+import { Layout } from '@/constants/Layout';
+import { Icon, IconProps } from '@/components/ui/Icon';
+
+export interface StatCardProps {
+  title: string;
+  value: string | number;
+  icon: IconProps;
+  change?: {
+    value: number;
+    isPositive: boolean;
+    label?: string;
+  };
+  onPress?: () => void;
+  variant?: 'default' | 'primary' | 'success' | 'warning' | 'error';
+}
+
+export const StatCard: React.FC<StatCardProps> = ({
+  title,
+  value,
+  icon,
+  change,
+  onPress,
+  variant = 'default',
+}) => {
+  const { colors } = useTheme();
+
+  const getVariantColor = () => {
+    switch (variant) {
+      case 'primary':
+        return colors.primary;
+      case 'success':
+        return colors.success;
+      case 'warning':
+        return colors.warning;
+      case 'error':
+        return colors.error;
+      default:
+        return colors.text;
+    }
+  };
+
+  const Container = onPress ? TouchableOpacity : View;
+
+  return (
+    <Container
+      style={[styles.container, { backgroundColor: colors.card }]}
+      onPress={onPress}
+      activeOpacity={0.7}
+    >
+      <View style={styles.header}>
+        <View style={[styles.iconContainer, { backgroundColor: getVariantColor() + '20' }]}>
+          <Icon
+            {...icon}
+            color={icon.color || getVariantColor()}
+            size={icon.size || 20}
+          />
+        </View>
+        {change && (
+          <View style={[
+            styles.changeBadge,
+            { backgroundColor: change.isPositive ? colors.success + '20' : colors.error + '20' }
+          ]}>
+            <Icon
+              name={change.isPositive ? 'trending-up' : 'trending-down'}
+              type="material-community"
+              size={12}
+              color={change.isPositive ? colors.success : colors.error}
+            />
+            <Text style={[
+              styles.changeText,
+              { color: change.isPositive ? colors.success : colors.error }
+            ]}>
+              {change.value}%
+            </Text>
+          </View>
+        )}
+      </View>
+
+      <Text style={[styles.value, { color: getVariantColor() }]}>
+        {value}
+      </Text>
+      <Text style={[styles.title, { color: colors.textSecondary }]}>
+        {title}
+      </Text>
+
+      {change?.label && (
+        <Text style={[styles.changeLabel, { color: colors.textSecondary }]}>
+          {change.label}
+        </Text>
+      )}
+    </Container>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    borderRadius: Layout.borderRadius.lg,
+    padding: Layout.spacing.lg,
+    minWidth: 140,
+    ...Layout.shadow.sm,
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: Layout.spacing.md,
+  },
+  iconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  changeBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: Layout.spacing.xs,
+    paddingVertical: 2,
+    borderRadius: Layout.borderRadius.sm,
+  },
+  changeText: {
+    fontSize: 10,
+    fontWeight: '600',
+    marginLeft: 2,
+  },
+  value: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginBottom: 4,
+  },
+  title: {
+    fontSize: 12,
+    fontWeight: '500',
+    marginBottom: 2,
+  },
+  changeLabel: {
+    fontSize: 10,
+    opacity: 0.8,
+  },
+});

@@ -1,0 +1,218 @@
+import axios from 'axios';
+import * as SecureStore from 'expo-secure-store';
+import Constants from 'expo-constants';
+import NetInfo from '@react-native-community/netinfo';
+import { KenyaConstants } from '@constants/KenyaConstants';
+
+const API_BASE_URL = Constants.expoConfig?.extra?.API_BASE_URL || 'http://localhost:8000/api';
+
+// Create axios instance
+export const api = axios.create({
+  baseURL: API_BASE_URL,
+  timeout: 30000,
+  headers: {
+    'Content-Type': 'application/json',
+    'Accept': 'application/json',
+  },
+});
+
+// Request interceptor
+api.interceptors.request.use(
+  async (config) => {
+    // Add auth token
+    const token = await SecureStore.getItemAsync('access_token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+
+    // Add device info
+    config.headers['X-Device-Id'] = Constants.deviceId;
+    config.headers['X-App-Version'] = Constants.expoConfig?.version || '1.0.0';
+    config.headers['X-Platform'] = Constants.platform?.os || 'unknown';
+
+    // Add Kenya-specific headers
+    config.headers['X-Country-Code'] = 'KE';
+    config.headers['X-Currency'] = 'KES';
+
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
+// Response interceptor
+api.interceptors.response.use(
+  (response) => {
+    return response;
+  },
+  async (error) => {
+    const originalRequest = error.config;
+
+    // Handle token refresh
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true;
+
+      try {
+        const refreshToken = await SecureStore.getItemAsync('refresh_token');
+        if (!refreshToken) {
+          throw new Error('No refresh token');
+        }
+
+        const response = await axios.post(`${API_BASE_URL}/auth/token/refresh/`, {
+          refresh: refreshToken,
+        });
+
+        const { access, refresh } = response.data;
+
+        await SecureStore.setItemAsync('access_token', access);
+        if (refresh) {
+          await SecureStore.setItemAsync('refresh_token', refresh);
+        }
+
+        // Retry original request
+        originalRequest.headers.Authorization = `Bearer ${access}`;
+        return api(originalRequest);
+      } catch (refreshError) {
+        // Clear tokens and redirect to login
+        await SecureStore.deleteItemAsync('access_token');
+        await SecureStore.deleteItemAsync('refresh_token');
+        // You might want to navigate to login here
+        return Promise.reject(refreshError);
+      }
+    }
+
+    // Handle network errors
+    if (!error.response) {
+      const networkState = await NetInfo.fetch();
+      if (!networkState.isConnected) {
+        error.message = 'No internet connection. Please check your network.';
+      }
+    }
+
+    // Handle Kenya-specific errors
+    if (error.response?.data) {
+      // Format Kenya-specific error messages
+      if (error.response.data.errors?.national_id) {
+        error.response.data.message = 'Please enter a valid Kenyan National ID (8-10 digits)';
+      }
+      if (error.response.data.errors?.kra_pin) {
+        error.response.data.message = 'Please enter a valid KRA PIN (Format: A123456789A)';
+      }
+      if (error.response.data.errors?.phone_number) {
+        error.response.data.message = 'Please enter a valid Kenyan phone number';
+      }
+    }
+
+    return Promise.reject(error);
+  }
+);
+
+// Offline request queue
+const offlineQueue: Array<{
+  request: any;
+  resolve: (value: any) => void;
+  reject: (reason?: any) => void;
+}> = [];
+
+let isOnline = true;
+
+// Monitor network status
+NetInfo.addEventListener((state) => {
+  isOnline = state.isConnected === true;
+
+  if (isOnline && offlineQueue.length > 0) {
+    // Process queued requests when back online
+    processOfflineQueue();
+  }
+});
+
+const processOfflineQueue = async () => {
+  while (offlineQueue.length > 0 && isOnline) {
+    const { request, resolve, reject } = offlineQueue.shift()!;
+    try {
+      const response = await api(request);
+      resolve(response);
+    } catch (error) {
+      reject(error);
+    }
+  }
+};
+
+// Offline API wrapper
+export const offlineApi = {
+  request: async (config: any) => {
+    if (isOnline) {
+      return api(config);
+    }
+
+    // Queue request for later
+    return new Promise((resolve, reject) => {
+      offlineQueue.push({ request: config, resolve, reject });
+    });
+  },
+
+  get: async (url: string, config?: any) => {
+    return offlineApi.request({ ...config, method: 'GET', url });
+  },
+
+  post: async (url: string, data?: any, config?: any) => {
+    return offlineApi.request({ ...config, method: 'POST', url, data });
+  },
+
+  put: async (url: string, data?: any, config?: any) => {
+    return offlineApi.request({ ...config, method: 'PUT', url, data });
+  },
+
+  delete: async (url: string, config?: any) => {
+    return offlineApi.request({ ...config, method: 'DELETE', url });
+  },
+
+  patch: async (url: string, data?: any, config?: any) => {
+    return offlineApi.request({ ...config, method: 'PATCH', url, data });
+  },
+};
+
+// Kenya-specific API endpoints
+export const kenyaApi = {
+  // M-Pesa Payment
+  initiateMpesaPayment: async (data: {
+    phone_number: string;
+    amount: number;
+    account_reference: string;
+    transaction_desc: string;
+  }) => {
+    return api.post('/mpesa/stk-push/', data);
+  },
+
+  checkMpesaStatus: async (checkoutRequestId: string) => {
+    return api.get(`/mpesa/status/${checkoutRequestId}/`);
+  },
+
+  // Statutory Calculations
+  calculateStatutory: async (data: {
+    gross_salary: number;
+    employment_type: string;
+    has_helb?: boolean;
+  }) => {
+    return api.post('/payroll/calculate-statutory/', data);
+  },
+
+  // Kenya Public Holidays
+  getPublicHolidays: async (year?: number) => {
+    const currentYear = year || new Date().getFullYear();
+    return api.get(`/kenya/holidays/${currentYear}/`);
+  },
+
+  // Geofencing
+  verifyGeofence: async (data: {
+    latitude: number;
+    longitude: number;
+    branch_id?: string;
+  }) => {
+    return api.post('/attendance/verify-geofence/', data);
+  },
+};
+
+// Export API instance
+export default api;

@@ -1,0 +1,249 @@
+// components/dashboard/PayrollSummary.tsx
+import React from 'react';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { useTheme } from '@/components/theme/ThemeProvider';
+import { Layout } from '@/constants/Layout';
+import { Icon } from '@/components/ui/Icon';
+
+export interface PayrollSummaryProps {
+  netPay?: number;
+  currency?: string;
+  period?: string;
+  status?: 'paid' | 'pending' | 'processing' | 'upcoming';
+  nextPayDate?: string;
+  onViewDetails?: () => void;
+  onDownloadPayslip?: () => void;
+  isLoading?: boolean;
+}
+
+export const PayrollSummary: React.FC<PayrollSummaryProps> = ({
+  netPay = 0,
+  currency = 'KES',
+  period = 'Current Month',
+  status = 'pending',
+  nextPayDate,
+  onViewDetails,
+  onDownloadPayslip,
+  isLoading = false,
+}) => {
+  const { colors } = useTheme();
+
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: currency,
+      minimumFractionDigits: 2,
+    }).format(amount);
+  };
+
+  const getStatusConfig = (status: string) => {
+    switch (status) {
+      case 'paid':
+        return {
+          color: colors.success,
+          icon: 'check-circle',
+          iconType: 'feather' as const,
+          label: 'Paid',
+        };
+      case 'pending':
+        return {
+          color: colors.warning,
+          icon: 'clock',
+          iconType: 'feather' as const,
+          label: 'Pending',
+        };
+      case 'processing':
+        return {
+          color: colors.info,
+          icon: 'refresh-cw',
+          iconType: 'feather' as const,
+          label: 'Processing',
+        };
+      case 'upcoming':
+        return {
+          color: colors.textSecondary,
+          icon: 'calendar',
+          iconType: 'feather' as const,
+          label: 'Upcoming',
+        };
+      default:
+        return {
+          color: colors.textSecondary,
+          icon: 'help-circle',
+          iconType: 'feather' as const,
+          label: 'Unknown',
+        };
+    }
+  };
+
+  const statusConfig = getStatusConfig(status);
+
+  if (isLoading) {
+    return (
+      <View style={[styles.container, { backgroundColor: colors.card }]}>
+        <View style={styles.loadingContainer}>
+          <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
+            Loading payroll data...
+          </Text>
+        </View>
+      </View>
+    );
+  }
+
+  return (
+    <View style={[styles.container, { backgroundColor: colors.card }]}>
+      <View style={styles.header}>
+        <View>
+          <Text style={[styles.title, { color: colors.text }]}>
+            Payroll
+          </Text>
+          <Text style={[styles.period, { color: colors.textSecondary }]}>
+            {period}
+          </Text>
+        </View>
+        <View style={[styles.statusBadge, { backgroundColor: statusConfig.color + '20' }]}>
+          <Icon
+            name={statusConfig.icon}
+            type={statusConfig.iconType}
+            size={12}
+            color={statusConfig.color}
+          />
+          <Text style={[styles.statusText, { color: statusConfig.color }]}>
+            {statusConfig.label}
+          </Text>
+        </View>
+      </View>
+
+      <View style={styles.amountContainer}>
+        <Text style={[styles.amountLabel, { color: colors.textSecondary }]}>
+          Net Pay
+        </Text>
+        <Text style={[styles.amount, { color: colors.primary }]}>
+          {formatCurrency(netPay)}
+        </Text>
+      </View>
+
+      {nextPayDate && (
+        <View style={styles.nextPayContainer}>
+          <Icon
+            name="calendar"
+            type="feather"
+            size={14}
+            color={colors.textSecondary}
+          />
+          <Text style={[styles.nextPayText, { color: colors.textSecondary }]}>
+            Next payroll: {new Date(nextPayDate).toLocaleDateString()}
+          </Text>
+        </View>
+      )}
+
+      <View style={styles.actionsContainer}>
+        {onViewDetails && (
+          <TouchableOpacity
+            style={[styles.actionButton, { backgroundColor: colors.primary + '10' }]}
+            onPress={onViewDetails}
+          >
+            <Icon name="eye" type="feather" size={16} color={colors.primary} />
+            <Text style={[styles.actionText, { color: colors.primary }]}>
+              View Details
+            </Text>
+          </TouchableOpacity>
+        )}
+
+        {onDownloadPayslip && status === 'paid' && (
+          <TouchableOpacity
+            style={[styles.actionButton, { backgroundColor: colors.success + '10' }]}
+            onPress={onDownloadPayslip}
+          >
+            <Icon name="download" type="feather" size={16} color={colors.success} />
+            <Text style={[styles.actionText, { color: colors.success }]}>
+              Download
+            </Text>
+          </TouchableOpacity>
+        )}
+      </View>
+    </View>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    borderRadius: Layout.borderRadius.lg,
+    padding: Layout.spacing.lg,
+    marginBottom: Layout.spacing.lg,
+    ...Layout.shadow.sm,
+  },
+  loadingContainer: {
+    alignItems: 'center',
+    paddingVertical: Layout.spacing.xl,
+  },
+  loadingText: {
+    fontSize: 14,
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: Layout.spacing.md,
+  },
+  title: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  period: {
+    fontSize: 12,
+  },
+  statusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: Layout.spacing.sm,
+    paddingVertical: 4,
+    borderRadius: Layout.borderRadius.round,
+  },
+  statusText: {
+    fontSize: 12,
+    fontWeight: '600',
+    marginLeft: 4,
+    textTransform: 'uppercase',
+  },
+  amountContainer: {
+    alignItems: 'center',
+    marginBottom: Layout.spacing.md,
+  },
+  amountLabel: {
+    fontSize: 14,
+    marginBottom: 4,
+  },
+  amount: {
+    fontSize: 32,
+    fontWeight: 'bold',
+  },
+  nextPayContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: Layout.spacing.md,
+  },
+  nextPayText: {
+    fontSize: 12,
+    marginLeft: Layout.spacing.xs,
+  },
+  actionsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: Layout.spacing.sm,
+  },
+  actionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: Layout.spacing.md,
+    paddingVertical: Layout.spacing.sm,
+    borderRadius: Layout.borderRadius.md,
+  },
+  actionText: {
+    fontSize: 14,
+    fontWeight: '500',
+    marginLeft: Layout.spacing.xs,
+  },
+});

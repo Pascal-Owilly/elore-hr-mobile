@@ -1,0 +1,270 @@
+// components/payroll/DeductionsCard.tsx
+import React from 'react';
+import { View, Text, StyleSheet } from 'react-native';
+import { useTheme } from '@components/theme/ThemeProvider';
+import { Layout } from '@constants/Layout';
+import { Icon } from '@components/ui/Icon';
+
+export interface DeductionItem {
+  id: string;
+  name: string;
+  amount: number;
+  type: 'loan' | 'advance' | 'insurance' | 'other' | 'penalty' | 'union';
+  status?: 'active' | 'completed' | 'pending';
+  remainingBalance?: number;
+}
+
+export interface DeductionsCardProps {
+  items: DeductionItem[] = [];
+  currency?: string;
+  showSummary?: boolean;
+}
+
+export const DeductionsCard: React.FC<DeductionsCardProps> = ({
+  items,
+  currency = 'USD',
+  showSummary = true,
+}) => {
+  const { colors } = useTheme();
+
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: currency,
+    }).format(amount);
+  };
+
+  const getItemIcon = (type: string) => {
+    switch (type) {
+      case 'loan':
+        return { name: 'hand-coin', type: 'material-community' as const, color: colors.error };
+      case 'advance':
+        return { name: 'cash-fast', type: 'material-community' as const, color: colors.warning };
+      case 'insurance':
+        return { name: 'shield-check', type: 'material-community' as const, color: colors.info };
+      case 'penalty':
+        return { name: 'alert-circle', type: 'feather' as const, color: colors.error };
+      case 'union':
+        return { name: 'account-group', type: 'material-community' as const, color: colors.secondary };
+      case 'other':
+      default:
+        return { name: 'minus-circle', type: 'material-community' as const, color: colors.textSecondary };
+    }
+  };
+
+  const getStatusColor = (status?: string) => {
+    switch (status) {
+      case 'active':
+        return colors.warning;
+      case 'completed':
+        return colors.success;
+      case 'pending':
+        return colors.info;
+      default:
+        return colors.textSecondary;
+    }
+  };
+
+  const totalDeductions = items.reduce((sum, item) => sum + item.amount, 0);
+  const activeLoans = items.filter(item => item.type === 'loan' && item.status === 'active');
+
+  return (
+    <View style={[styles.container, { backgroundColor: colors.card }]}>
+      <View style={styles.header}>
+        <Text style={[styles.title, { color: colors.text }]}>
+          Deductions
+        </Text>
+        {showSummary && (
+          <Text style={[styles.total, { color: colors.error }]}>
+            -{formatCurrency(totalDeductions)}
+          </Text>
+        )}
+      </View>
+
+      {items.map((item) => {
+        const icon = getItemIcon(item.type);
+        const statusColor = getStatusColor(item.status);
+
+        return (
+          <View key={item.id} style={styles.itemRow}>
+            <View style={styles.itemInfo}>
+              <View style={[styles.iconContainer, { backgroundColor: icon.color + '20' }]}>
+                <Icon name={icon.name} type={icon.type} size={16} color={icon.color} />
+              </View>
+              <View style={styles.itemDetails}>
+                <Text style={[styles.itemName, { color: colors.text }]}>
+                  {item.name}
+                </Text>
+                <View style={styles.itemMeta}>
+                  <Text style={[styles.itemType, { color: colors.textSecondary }]}>
+                    {item.type.charAt(0).toUpperCase() + item.type.slice(1)}
+                  </Text>
+                  {item.status && (
+                    <>
+                      <Text style={{ color: colors.textSecondary, marginHorizontal: 4 }}>•</Text>
+                      <View style={[styles.statusBadge, { backgroundColor: statusColor + '20' }]}>
+                        <Text style={[styles.statusText, { color: statusColor }]}>
+                          {item.status}
+                        </Text>
+                      </View>
+                    </>
+                  )}
+                </View>
+                {item.remainingBalance !== undefined && (
+                  <Text style={[styles.balanceText, { color: colors.textSecondary }]}>
+                    Balance: {formatCurrency(item.remainingBalance)}
+                  </Text>
+                )}
+              </View>
+            </View>
+            <Text style={[styles.itemAmount, { color: colors.error }]}>
+              -{formatCurrency(item.amount)}
+            </Text>
+          </View>
+        );
+      })}
+
+      {showSummary && items.length > 0 && (
+        <View style={styles.summaryContainer}>
+          {activeLoans.length > 0 && (
+            <View style={styles.summaryRow}>
+              <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>
+                Active Loans
+              </Text>
+              <Text style={[styles.summaryValue, { color: colors.text }]}>
+                {activeLoans.length}
+              </Text>
+            </View>
+          )}
+          <View style={styles.summaryRow}>
+            <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>
+              Total Deductions
+            </Text>
+            <Text style={[styles.summaryValue, { color: colors.text }]}>
+              {formatCurrency(totalDeductions)}
+            </Text>
+          </View>
+        </View>
+      )}
+
+      {items.length === 0 && (
+        <View style={styles.emptyContainer}>
+          <Icon
+            name="hand-coin"
+            type="material-community"
+            size={48}
+            color={colors.textSecondary}
+          />
+          <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+            No deductions this period
+          </Text>
+        </View>
+      )}
+    </View>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    borderRadius: Layout.borderRadius.lg,
+    padding: Layout.spacing.lg,
+    marginBottom: Layout.spacing.lg,
+    ...Layout.shadow.sm,
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: Layout.spacing.md,
+    paddingBottom: Layout.spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0,0,0,0.1)',
+  },
+  title: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  total: {
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  itemRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: Layout.spacing.sm,
+  },
+  itemInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  iconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: Layout.spacing.sm,
+  },
+  itemDetails: {
+    flex: 1,
+  },
+  itemName: {
+    fontSize: 14,
+    fontWeight: '500',
+    marginBottom: 2,
+  },
+  itemMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  itemType: {
+    fontSize: 12,
+  },
+  statusBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: Layout.borderRadius.sm,
+  },
+  statusText: {
+    fontSize: 10,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+  },
+  balanceText: {
+    fontSize: 11,
+  },
+  itemAmount: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  summaryContainer: {
+    marginTop: Layout.spacing.md,
+    paddingTop: Layout.spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(0,0,0,0.1)',
+  },
+  summaryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: Layout.spacing.xs,
+  },
+  summaryLabel: {
+    fontSize: 14,
+  },
+  summaryValue: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    paddingVertical: Layout.spacing.xl,
+  },
+  emptyText: {
+    fontSize: 14,
+    marginTop: Layout.spacing.md,
+  },
+});

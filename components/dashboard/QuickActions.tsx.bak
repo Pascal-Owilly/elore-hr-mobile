@@ -1,0 +1,142 @@
+// components/dashboard/QuickActions.tsx
+import React from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { useTheme } from '@components/theme/ThemeProvider';
+import { Layout } from '@constants/Layout';
+import { Icon, IconProps } from '@components/ui/Icon';
+
+export interface QuickAction {
+  id: string;
+  title: string;
+  icon: IconProps;
+  onPress: () => void;
+  badge?: number;
+  disabled?: boolean;
+}
+
+export interface QuickActionsProps {
+  actions: QuickAction[] = [];
+  title?: string;
+  columns?: number;
+}
+
+export const QuickActions: React.FC<QuickActionsProps> = ({
+  actions,
+  title = 'Quick Actions',
+  columns = 4,
+}) => {
+  const { colors } = useTheme();
+
+  return (
+    <View style={[styles.container, { backgroundColor: colors.card }]}>
+      <Text style={[styles.title, { color: colors.text }]}>
+        {title}
+      </Text>
+      
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+      >
+        {actions.map((action) => (
+          <TouchableOpacity
+            key={action.id}
+            style={[
+              styles.actionButton,
+              { backgroundColor: colors.background },
+              action.disabled && styles.disabledButton,
+            ]}
+            onPress={action.onPress}
+            disabled={action.disabled}
+            activeOpacity={0.7}
+          >
+            <View style={styles.actionIconContainer}>
+              <View style={[
+                styles.iconWrapper,
+                { backgroundColor: colors.primary + '20' }
+              ]}>
+                <Icon
+                  {...action.icon}
+                  color={action.icon.color || colors.primary}
+                  size={action.icon.size || 24}
+                />
+              </View>
+              {action.badge && action.badge > 0 && (
+                <View style={[styles.badge, { backgroundColor: colors.error }]}>
+                  <Text style={styles.badgeText}>
+                    {action.badge > 99 ? '99+' : action.badge}
+                  </Text>
+                </View>
+              )}
+            </View>
+            <Text style={[
+              styles.actionTitle,
+              { color: action.disabled ? colors.textSecondary : colors.text }
+            ]}>
+              {action.title}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
+    </View>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    borderRadius: Layout.borderRadius.lg,
+    padding: Layout.spacing.lg,
+    marginBottom: Layout.spacing.lg,
+    ...Layout.shadow.sm,
+  },
+  title: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: Layout.spacing.md,
+  },
+  scrollContent: {
+    paddingRight: Layout.spacing.md,
+  },
+  actionButton: {
+    alignItems: 'center',
+    width: 80,
+    marginRight: Layout.spacing.md,
+    padding: Layout.spacing.sm,
+    borderRadius: Layout.borderRadius.md,
+  },
+  disabledButton: {
+    opacity: 0.5,
+  },
+  actionIconContainer: {
+    position: 'relative',
+    marginBottom: Layout.spacing.xs,
+  },
+  iconWrapper: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  badge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+  },
+  badgeText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: 'bold',
+  },
+  actionTitle: {
+    fontSize: 11,
+    fontWeight: '500',
+    textAlign: 'center',
+  },
+});

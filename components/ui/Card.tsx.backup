@@ -1,0 +1,76 @@
+// components/ui/Card.tsx
+import React from 'react';
+import { View, StyleSheet, ViewProps } from 'react-native';
+import { useTheme } from '@components/theme/ThemeProvider';
+import { Layout } from '@constants/Layout';
+
+export interface CardProps extends ViewProps {
+  children: React.ReactNode;
+  variant?: 'elevated' | 'outlined' | 'filled';
+  padding?: 'none' | 'sm' | 'md' | 'lg';
+}
+
+export const Card: React.FC<CardProps> = ({
+  children,
+  variant = 'elevated',
+  padding = 'md',
+  style,
+  ...props
+}) => {
+  const { colors } = useTheme();
+
+  const getVariantStyle = () => {
+    switch (variant) {
+      case 'outlined':
+        return {
+          backgroundColor: colors.card,
+          borderWidth: 1,
+          borderColor: colors.border,
+        };
+      case 'filled':
+        return {
+          backgroundColor: colors.background,
+        };
+      case 'elevated':
+      default:
+        return {
+          backgroundColor: colors.card,
+          ...Layout.shadow.sm,
+        };
+    }
+  };
+
+  const getPadding = () => {
+    switch (padding) {
+      case 'none':
+        return 0;
+      case 'sm':
+        return Layout.spacing.sm;
+      case 'lg':
+        return Layout.spacing.lg;
+      case 'md':
+      default:
+        return Layout.spacing.md;
+    }
+  };
+
+  return (
+    <View
+      style={[
+        styles.container,
+        getVariantStyle(),
+        { padding: getPadding() },
+        style,
+      ]}
+      {...props}
+    >
+      {children}
+    </View>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    borderRadius: Layout.borderRadius.lg,
+  },
+});

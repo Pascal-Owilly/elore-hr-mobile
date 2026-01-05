@@ -1,0 +1,342 @@
+// lib/hooks/useAuth.ts
+import { useState, useEffect, useCallback } from 'react';
+import { Alert } from 'react-native';
+import { useRouter } from 'expo-router';
+import * as SecureStore from 'expo-secure-store';
+import * as LocalAuthentication from 'expo-local-authentication';
+import { api } from '@lib/api/client';
+import { User, Employee, AuthResponse, LoginCredentials } from '@types';
+
+// Storage keys
+const AUTH_KEYS = {
+  ACCESS_TOKEN: 'access_token',
+  REFRESH_TOKEN: 'refresh_token',
+  USER_DATA: 'user_data',
+  EMPLOYEE_DATA: 'employee_data',
+  BIOMETRIC_ENABLED: 'biometric_enabled',
+  REMEMBER_ME: 'remember_me',
+};
+
+export const useAuth = () => {
+  const [user, setUser] = useState<User | null>(null);
+  const [employee, setEmployee] = useState<Employee | null>(null);
+  const [token, setToken] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [biometricAvailable, setBiometricAvailable] = useState(false);
+  const [biometricEnabled, setBiometricEnabled] = useState(false);
+  const router = useRouter();
+
+  // Check biometric availability
+  useEffect(() => {
+    checkBiometricAvailability();
+  }, []);
+
+  const checkBiometricAvailability = async () => {
+    try {
+      const compatible = await LocalAuthentication.hasHardwareAsync();
+      const enrolled = await LocalAuthentication.isEnrolledAsync();
+      
+      if (compatible && enrolled) {
+        setBiometricAvailable(true);
+        
+        // Check if user has enabled biometric auth
+        const enabled = await SecureStore.getItemAsync(AUTH_KEYS.BIOMETRIC_ENABLED);
+        setBiometricEnabled(enabled === 'true');
+      }
+    } catch (error) {
+      console.error('Error checking biometric availability:', error);
+    }
+  };
+
+  // Load saved auth state
+  useEffect(() => {
+    loadAuthState();
+  }, []);
+
+  const loadAuthState = async () => {
+    try {
+      const [accessToken, userData, employeeData] = await Promise.all([
+        SecureStore.getItemAsync(AUTH_KEYS.ACCESS_TOKEN),
+        SecureStore.getItemAsync(AUTH_KEYS.USER_DATA),
+        SecureStore.getItemAsync(AUTH_KEYS.EMPLOYEE_DATA),
+      ]);
+
+      if (accessToken && userData) {
+        setToken(accessToken);
+        setUser(JSON.parse(userData));
+        if (employeeData) {
+          setEmployee(JSON.parse(employeeData));
+        }
+      }
+    } catch (error) {
+      console.error('Error loading auth state:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const saveAuthData = async (data: AuthResponse) => {
+    try {
+      await Promise.all([
+        SecureStore.setItemAsync(AUTH_KEYS.ACCESS_TOKEN, data.access_token),
+        SecureStore.setItemAsync(AUTH_KEYS.REFRESH_TOKEN, data.refresh_token),
+        SecureStore.setItemAsync(AUTH_KEYS.USER_DATA, JSON.stringify(data.user)),
+        data.employee && SecureStore.setItemAsync(AUTH_KEYS.EMPLOYEE_DATA, JSON.stringify(data.employee)),
+      ]);
+
+      setToken(data.access_token);
+      setUser(data.user);
+      setEmployee(data.employee || null);
+    } catch (error) {
+      console.error('Error saving auth data:', error);
+      throw error;
+    }
+  };
+
+  const clearAuthData = async () => {
+    try {
+      await Promise.all([
+        SecureStore.deleteItemAsync(AUTH_KEYS.ACCESS_TOKEN),
+        SecureStore.deleteItemAsync(AUTH_KEYS.REFRESH_TOKEN),
+        SecureStore.deleteItemAsync(AUTH_KEYS.USER_DATA),
+        SecureStore.deleteItemAsync(AUTH_KEYS.EMPLOYEE_DATA),
+      ]);
+
+      setToken(null);
+      setUser(null);
+      setEmployee(null);
+    } catch (error) {
+      console.error('Error clearing auth data:', error);
+      throw error;
+    }
+  };
+
+  const login = async (credentials: LoginCredentials) => {
+    try {
+      setIsLoading(true);
+      
+      const response = await api.post<AuthResponse>('/auth/login', credentials);
+      
+      await saveAuthData(response.data);
+      
+      // Save remember me preference
+      if (credentials.rememberMe) {
+        await SecureStore.setItemAsync(AUTH_KEYS.REMEMBER_ME, 'true');
+      }
+      
+      return { success: true, data: response.data };
+    } catch (error: any) {
+      console.error('Login error:', error);
+      
+      let message = 'Login failed. Please check your credentials.';
+      if (error.response?.data?.message) {
+        message = error.response.data.message;
+      } else if (error.message) {
+        message = error.message;
+      }
+      
+      return { success: false, error: message };
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const logout = async () => {
+    try {
+      setIsLoading(true);
+      
+      // Call logout API if token exists
+      if (token) {
+        try {
+          await api.post('/auth/logout');
+        } catch (error) {
+          console.warn('Logout API call failed:', error);
+        }
+      }
+      
+      await clearAuthData();
+      
+      // Navigate to login
+      router.replace('/auth/login');
+    } catch (error) {
+      console.error('Logout error:', error);
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const register = async (data: any) => {
+    try {
+      setIsLoading(true);
+      
+      const response = await api.post<AuthResponse>('/auth/register', data);
+      await saveAuthData(response.data);
+      
+      return { success: true, data: response.data };
+    } catch (error: any) {
+      console.error('Registration error:', error);
+      
+      let message = 'Registration failed. Please try again.';
+      if (error.response?.data?.message) {
+        message = error.response.data.message;
+      }
+      
+      return { success: false, error: message };
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const biometricLogin = async () => {
+    try {
+      if (!biometricAvailable) {
+        throw new Error('Biometric authentication not available');
+      }
+
+      const result = await LocalAuthentication.authenticateAsync({
+        promptMessage: 'Authenticate to access HR Portal',
+        fallbackLabel: 'Use password',
+        disableDeviceFallback: false,
+      });
+
+      if (result.success) {
+        // Get stored credentials and auto-login
+        const rememberMe = await SecureStore.getItemAsync(AUTH_KEYS.REMEMBER_ME);
+        if (rememberMe === 'true') {
+          // You might want to implement auto-login with stored credentials
+          // or use refresh token
+          Alert.alert('Success', 'Biometric authentication successful!');
+          return { success: true };
+        } else {
+          return { success: false, error: 'Please login with credentials' };
+        }
+      } else {
+        return { success: false, error: 'Authentication cancelled or failed' };
+      }
+    } catch (error: any) {
+      console.error('Biometric login error:', error);
+      return { success: false, error: error.message };
+    }
+  };
+
+  const toggleBiometric = async (enable: boolean) => {
+    try {
+      if (enable && !biometricAvailable) {
+        throw new Error('Biometric authentication not available on this device');
+      }
+
+      await SecureStore.setItemAsync(AUTH_KEYS.BIOMETRIC_ENABLED, enable.toString());
+      setBiometricEnabled(enable);
+      
+      return { success: true };
+    } catch (error: any) {
+      console.error('Toggle biometric error:', error);
+      return { success: false, error: error.message };
+    }
+  };
+
+  const refreshToken = async () => {
+    try {
+      const refreshToken = await SecureStore.getItemAsync(AUTH_KEYS.REFRESH_TOKEN);
+      if (!refreshToken) {
+        throw new Error('No refresh token available');
+      }
+
+      const response = await api.post<{ access_token: string; refresh_token: string }>('/auth/refresh', {
+        refresh_token: refreshToken,
+      });
+
+      await SecureStore.setItemAsync(AUTH_KEYS.ACCESS_TOKEN, response.data.access_token);
+      if (response.data.refresh_token) {
+        await SecureStore.setItemAsync(AUTH_KEYS.REFRESH_TOKEN, response.data.refresh_token);
+      }
+
+      setToken(response.data.access_token);
+      return { success: true };
+    } catch (error) {
+      console.error('Token refresh error:', error);
+      await logout();
+      return { success: false };
+    }
+  };
+
+  const updateProfile = async (data: any) => {
+    try {
+      const response = await api.patch<User>('/auth/profile', data);
+      
+      await SecureStore.setItemAsync(AUTH_KEYS.USER_DATA, JSON.stringify(response.data));
+      setUser(response.data);
+      
+      return { success: true, data: response.data };
+    } catch (error: any) {
+      console.error('Update profile error:', error);
+      return { success: false, error: error.message };
+    }
+  };
+
+  const changePassword = async (currentPassword: string, newPassword: string) => {
+    try {
+      await api.post('/auth/change-password', {
+        current_password: currentPassword,
+        new_password: newPassword,
+      });
+      
+      return { success: true };
+    } catch (error: any) {
+      console.error('Change password error:', error);
+      return { success: false, error: error.message };
+    }
+  };
+
+  const forgotPassword = async (email: string) => {
+    try {
+      await api.post('/auth/forgot-password', { email });
+      return { success: true };
+    } catch (error: any) {
+      console.error('Forgot password error:', error);
+      return { success: false, error: error.message };
+    }
+  };
+
+  const resetPassword = async (token: string, password: string) => {
+    try {
+      await api.post('/auth/reset-password', {
+        token,
+        password,
+      });
+      return { success: true };
+    } catch (error: any) {
+      console.error('Reset password error:', error);
+      return { success: false, error: error.message };
+    }
+  };
+
+  return {
+    // State
+    user,
+    employee,
+    token,
+    isLoading,
+    isAuthenticated: !!user && !!token,
+    biometricAvailable,
+    biometricEnabled,
+    
+    // Actions
+    login,
+    logout,
+    register,
+    biometricLogin,
+    toggleBiometric,
+    refreshToken,
+    updateProfile,
+    changePassword,
+    forgotPassword,
+    resetPassword,
+    
+    // Utilities
+    saveAuthData,
+    clearAuthData,
+    loadAuthState,
+  };
+};
