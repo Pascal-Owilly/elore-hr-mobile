@@ -1,35 +1,76 @@
-import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
+import React, { useState, useEffect } from 'react';
+import { 
+  View, 
+  Text, 
+  StyleSheet, 
+  ScrollView, 
   TouchableOpacity,
+  Alert,
+  RefreshControl,
+  ActivityIndicator,
+  Dimensions
 } from 'react-native';
 import { router } from 'expo-router';
+import { Feather } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
-import dayjs from 'dayjs';
-import { Colors } from '@constants/Colors';
-import { Layout } from '@constants/Layout';
+import { useAuth } from '@/lib/hooks/useAuth';
+import { api } from '@/lib/api/client';
+import { Layout } from '@/constants/Layout';
 import { KenyaConstants } from '@constants/KenyaConstants';
-import { Icon } from '@components/ui/Icon';
-import { Card } from '@components/ui/Card';
-import { Button } from '@components/ui/Button';
-import { PayPeriodSelector } from '@components/payroll/PayPeriodSelector';
-import { PayslipCard } from '@components/payroll/PayslipCard';
-import { StatutoryBreakdown } from '@components/payroll/StatutoryBreakdown';
-import { EarningsCard } from '@components/payroll/EarningsCard';
-import { DeductionsCard } from '@components/payroll/DeductionsCard';
-import { MpesaStatus } from '@components/payroll/MpesaStatus';
-import { api } from '@lib/api/client';
-import { useAuth } from '@lib/hooks/useAuth';
+import dayjs from 'dayjs';
+
+// Theme colors
+const THEME_COLORS = {
+  cream: '#e9ded3',
+  primaryBlue: '#0056b3',
+  gold: '#deab63',
+  white: '#ffffff',
+  textPrimary: '#111827',
+  textSecondary: '#6b7280',
+  textTertiary: '#9ca3af',
+  borderLight: '#e5e7eb',
+  background: '#f9fafb',
+  success: '#10b981',
+  warning: '#f59e0b',
+  danger: '#ef4444',
+  info: '#3b82f6',
+  gray50: '#f9fafb',
+  gray100: '#f3f4f6',
+};
+
+interface PayrollPeriod {
+  id: string;
+  name: string;
+  start_date: string;
+  end_date: string;
+  pay_date: string;
+  status: string;
+  is_locked: boolean;
+}
+
+interface PayrollDashboard {
+  summary: {
+    total_payroll: number;
+    total_gross: number;
+    total_employees: number;
+    average_salary: number;
+    payroll_change: number;
+    employee_change: number;
+    avg_salary_change: number;
+  };
+}
 
 export default function PayrollScreen() {
-  const { employee } = useAuth();
+  const { user, employee } = useAuth();
+  const [refreshing, setRefreshing] = useState(false);
   const [selectedPeriod, setSelectedPeriod] = useState<string | null>(null);
 
   // Fetch payroll periods
-  const { data: periods, isLoading: periodsLoading } = useQuery({
+  const { 
+    data: periods, 
+    isLoading: periodsLoading,
+    refetch: refetchPeriods 
+  } = useQuery({
     queryKey: ['payroll-periods'],
     queryFn: async () => {
       const response = await api.get('/payroll/periods/');
@@ -37,31 +78,42 @@ export default function PayrollScreen() {
     },
   });
 
-  // Fetch payroll for selected period
-  const { data: payrollData, isLoading: payrollLoading } = useQuery({
-    queryKey: ['payroll', selectedPeriod],
+  // Fetch payroll dashboard data
+  const { 
+    data: dashboardData, 
+    isLoading: dashboardLoading,
+    refetch: refetchDashboard 
+  } = useQuery({
+    queryKey: ['payroll-dashboard'],
     queryFn: async () => {
-      if (!selectedPeriod) return null;
-      const response = await api.get(`/payroll/${selectedPeriod}/`);
-      return response.data;
-    },
-    enabled: !!selectedPeriod,
-  });
-
-  // Fetch recent payrolls
-  const { data: recentPayrolls, isLoading: recentLoading } = useQuery({
-    queryKey: ['recent-payrolls'],
-    queryFn: async () => {
-      const response = await api.get('/payroll/recent/');
+      const response = await api.get('/payroll/dashboard/');
       return response.data;
     },
   });
 
-  // Set default selected period to current month if available
-  React.useEffect(() => {
+  // Fetch recent payslips
+  const { 
+    data: recentPayslips, 
+    isLoading: recentPayslipsLoading,
+    refetch: refetchRecentPayslips 
+  } = useQuery({
+    queryKey: ['recent-payslips'],
+    queryFn: async () => {
+      const response = await api.get('/payroll/my-payslips/');
+      return response.data;
+    },
+  });
+
+  // Set default selected period
+  useEffect(() => {
     if (periods && periods.length > 0 && !selectedPeriod) {
+      // Try to find current period or latest paid period
       const currentPeriod = periods.find(
-        (p: any) => p.status === 'PAID' || p.status === 'APPROVED'
+        (p: PayrollPeriod) => 
+          p.status === 'PAID' || 
+          p.status === 'APPROVED' ||
+          (dayjs(p.end_date).isAfter(dayjs().subtract(15, 'days')) && 
+           dayjs(p.start_date).isBefore(dayjs()))
       );
       if (currentPeriod) {
         setSelectedPeriod(currentPeriod.id);
@@ -69,487 +121,711 @@ export default function PayrollScreen() {
     }
   }, [periods]);
 
-  const handleViewPayslip = (payrollId: string) => {
-    router.push(`/(app)/payroll/${payrollId}`);
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await Promise.all([
+      refetchPeriods(),
+      refetchDashboard(),
+      refetchRecentPayslips(),
+    ]);
+    setRefreshing(false);
   };
 
-  const handleDownloadPayslip = async (payrollId: string) => {
-    try {
-      const response = await api.get(`/payroll/${payrollId}/payslip/`, {
-        responseType: 'blob',
-      });
-      // Handle PDF download
-      // Implementation depends on your file handling setup
-    } catch (error) {
-      console.error('Failed to download payslip:', error);
+  const formatCurrency = (amount: number) => {
+    return KenyaConstants.currency.format(amount);
+  };
+
+  const formatDate = (dateString: string) => {
+    return dayjs(dateString).format('DD/MM/YYYY');
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status?.toUpperCase()) {
+      case 'PAID':
+        return THEME_COLORS.success;
+      case 'APPROVED':
+        return THEME_COLORS.info;
+      case 'PENDING':
+        return THEME_COLORS.warning;
+      case 'CALCULATED':
+        return THEME_COLORS.primaryBlue;
+      case 'FAILED':
+        return THEME_COLORS.danger;
+      default:
+        return THEME_COLORS.textSecondary;
     }
   };
 
-  const handleMpesaPayment = async () => {
-    if (!payrollData) return;
-    
+  const handleViewPayslip = (payrollId: string) => {
+    router.push(`/app/payroll/${payrollId}`);
+  };
+
+  const handleGeneratePayslip = async (payrollId: string) => {
     try {
-      // Initiate M-Pesa payment
-      const response = await api.post('/payroll/mpesa-payment/', {
-        payroll_id: payrollData.id,
-      });
-      
-      // Show success message
       Alert.alert(
-        'Payment Initiated',
-        'M-Pesa payment request sent. Please check your phone.',
-        [{ text: 'OK' }]
+        'Download Payslip',
+        'Would you like to download the payslip as PDF?',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { 
+            text: 'Download', 
+            onPress: async () => {
+              const response = await api.get(`/payroll/${payrollId}/payslip-pdf/`);
+              // Handle PDF download here
+              Alert.alert('Success', 'Payslip PDF generated successfully');
+            }
+          }
+        ]
       );
     } catch (error) {
-      console.error('M-Pesa payment failed:', error);
-      Alert.alert('Payment Failed', 'Unable to process M-Pesa payment.');
+      Alert.alert('Error', 'Failed to generate payslip');
     }
   };
 
+  const handleCalculateStatutory = async () => {
+    if (!employee?.basic_salary) {
+      Alert.alert('Error', 'Basic salary not available');
+      return;
+    }
+
+    try {
+      const response = await api.post('/payroll/statutory/', {
+        gross_salary: employee.basic_salary + (employee.housing_allowance || 0) + (employee.transport_allowance || 0),
+        employment_type: employee.employment_type || 'PERMANENT',
+        has_helb: !!employee.helb_deduction,
+      });
+
+      Alert.alert(
+        'Statutory Calculation',
+        `NSSF: ${formatCurrency(response.data.statutory_deductions.nssf_employee)}\n` +
+        `NHIF: ${formatCurrency(response.data.statutory_deductions.nhif)}\n` +
+        `PAYE: ${formatCurrency(response.data.statutory_deductions.paye)}\n` +
+        `Net Salary: ${formatCurrency(response.data.net_salary)}`
+      );
+    } catch (error) {
+      Alert.alert('Error', 'Failed to calculate statutory deductions');
+    }
+  };
+
+  const isLoading = periodsLoading || dashboardLoading || recentPayslipsLoading;
+
+  if (isLoading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={THEME_COLORS.primaryBlue} />
+        <Text style={styles.loadingText}>Loading payroll data...</Text>
+      </View>
+    );
+  }
+
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+    <ScrollView 
+      style={styles.container}
+      showsVerticalScrollIndicator={false}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={handleRefresh}
+          colors={[THEME_COLORS.primaryBlue]}
+          tintColor={THEME_COLORS.primaryBlue}
+        />
+      }
+    >
       {/* Header */}
       <View style={styles.header}>
         <View>
-          <Text style={styles.title}>Payroll</Text>
+          <Text style={styles.title}>Payroll Dashboard</Text>
           <Text style={styles.subtitle}>
-            View your payslips and payment history
+            {employee?.employee_number ? `Employee ID: ${employee.employee_number}` : 'Payroll Management'}
           </Text>
         </View>
         <TouchableOpacity
-          style={styles.downloadButton}
-          onPress={() => {
-            if (payrollData) {
-              handleDownloadPayslip(payrollData.id);
-            }
-          }}
-          disabled={!payrollData}
+          style={styles.statutoryButton}
+          onPress={handleCalculateStatutory}
         >
-          <Icon name="download" size={20} color={Colors.primaryBlue600} />
+          <Feather name="calculator" size={20} color={THEME_COLORS.white} />
         </TouchableOpacity>
       </View>
 
-      {/* Kenya Flag Line */}
-      <View style={styles.flagLine}>
-        <View style={[styles.flagSegment, { backgroundColor: Colors.kenyaBlack }]} />
-        <View style={[styles.flagSegment, { backgroundColor: Colors.kenyaRed }]} />
-        <View style={[styles.flagSegment, { backgroundColor: Colors.kenyaGreen }]} />
-        <View style={[styles.flagSegment, { backgroundColor: Colors.kenyaWhite }]} />
-      </View>
-
-      {/* Pay Period Selector */}
-      <PayPeriodSelector
-        periods={periods}
-        selectedPeriod={selectedPeriod}
-        onSelectPeriod={setSelectedPeriod}
-        loading={periodsLoading}
-      />
-
-      {selectedPeriod && payrollData && (
-        <>
-          {/* Main Payslip Card */}
-          <PayslipCard
-            payroll={payrollData}
-            onViewDetails={() => handleViewPayslip(payrollData.id)}
-          />
-
-          {/* Payment Status */}
-          {payrollData.payment_status === 'PAID' && payrollData.mpesa_transaction_id && (
-            <MpesaStatus
-              transactionId={payrollData.mpesa_transaction_id}
-              paymentDate={payrollData.payment_date}
-              amount={payrollData.net_salary}
-            />
-          )}
-
-          {/* Payment Action */}
-          {payrollData.payment_status === 'APPROVED' && employee?.mpesa_number && (
-            <Card style={styles.paymentActionCard}>
-              <View style={styles.paymentActionHeader}>
-                <Icon name="smartphone" size={24} color={Colors.gold500} />
-                <Text style={styles.paymentActionTitle}>
-                  Ready for M-Pesa Payment
+      {/* Quick Stats */}
+      {dashboardData?.summary && (
+        <View style={styles.statsContainer}>
+          <View style={styles.statCard}>
+            <Feather name="users" size={20} color={THEME_COLORS.primaryBlue} />
+            <Text style={styles.statValue}>
+              {dashboardData.summary.total_employees}
+            </Text>
+            <Text style={styles.statLabel}>Total Employees</Text>
+            {dashboardData.summary.employee_change !== 0 && (
+              <View style={styles.statChange}>
+                <Feather 
+                  name={dashboardData.summary.employee_change > 0 ? 'trending-up' : 'trending-down'} 
+                  size={12} 
+                  color={dashboardData.summary.employee_change > 0 ? THEME_COLORS.success : THEME_COLORS.danger} 
+                />
+                <Text style={[
+                  styles.changeText,
+                  { color: dashboardData.summary.employee_change > 0 ? THEME_COLORS.success : THEME_COLORS.danger }
+                ]}>
+                  {Math.abs(dashboardData.summary.employee_change)}%
                 </Text>
               </View>
-              <Text style={styles.paymentActionText}>
-                Your salary of {KenyaConstants.currency.format(payrollData.net_salary)} is ready for payment to:
-              </Text>
-              <Text style={styles.mpesaNumber}>
-                {KenyaConstants.phoneFormat.display(employee.mpesa_number || '')}
-              </Text>
-              <Button
-                title="Pay via M-Pesa"
-                onPress={handleMpesaPayment}
-                style={styles.mpesaButton}
-                icon={<Icon name="smartphone" size={20} color={Colors.white} />}
-              />
-            </Card>
-          )}
+            )}
+          </View>
 
-          {/* Earnings Breakdown */}
-          <EarningsCard earnings={payrollData.earnings} />
-
-          {/* Statutory Deductions (Kenya Specific) */}
-          <StatutoryBreakdown
-            nssf={payrollData.nssf_employee}
-            nhif={payrollData.nhif}
-            paye={payrollData.paye}
-            helb={payrollData.helb}
-            totalDeductions={payrollData.total_deductions}
-          />
-
-          {/* Other Deductions */}
-          <DeductionsCard deductions={payrollData.other_deductions} />
-
-          {/* Net Salary Summary */}
-          <Card style={styles.netSalaryCard}>
-            <View style={styles.netSalaryHeader}>
-              <Text style={styles.netSalaryTitle}>Net Salary</Text>
-              <Text style={styles.netSalaryAmount}>
-                {KenyaConstants.currency.format(payrollData.net_salary)}
-              </Text>
-            </View>
-            <View style={styles.netSalaryBreakdown}>
-              <View style={styles.breakdownRow}>
-                <Text style={styles.breakdownLabel}>Gross Salary</Text>
-                <Text style={styles.breakdownValue}>
-                  {KenyaConstants.currency.format(payrollData.gross_salary)}
+          <View style={styles.statCard}>
+            <Feather name="dollar-sign" size={20} color={THEME_COLORS.success} />
+            <Text style={styles.statValue}>
+              {formatCurrency(dashboardData.summary.total_payroll)}
+            </Text>
+            <Text style={styles.statLabel}>Total Payroll</Text>
+            {dashboardData.summary.payroll_change !== 0 && (
+              <View style={styles.statChange}>
+                <Feather 
+                  name={dashboardData.summary.payroll_change > 0 ? 'trending-up' : 'trending-down'} 
+                  size={12} 
+                  color={dashboardData.summary.payroll_change > 0 ? THEME_COLORS.success : THEME_COLORS.danger} 
+                />
+                <Text style={[
+                  styles.changeText,
+                  { color: dashboardData.summary.payroll_change > 0 ? THEME_COLORS.success : THEME_COLORS.danger }
+                ]}>
+                  {Math.abs(dashboardData.summary.payroll_change)}%
                 </Text>
               </View>
-              <View style={styles.breakdownRow}>
-                <Text style={styles.breakdownLabel}>Total Deductions</Text>
-                <Text style={[styles.breakdownValue, styles.deductionValue]}>
-                  -{KenyaConstants.currency.format(payrollData.total_deductions)}
-                </Text>
-              </View>
-              <View style={styles.divider} />
-              <View style={styles.breakdownRow}>
-                <Text style={styles.netSalaryLabel}>Net Payable</Text>
-                <Text style={styles.netSalaryValue}>
-                  {KenyaConstants.currency.format(payrollData.net_salary)}
-                </Text>
-              </View>
-            </View>
-          </Card>
+            )}
+          </View>
 
-          {/* Payment Method */}
-          <Card style={styles.paymentMethodCard}>
-            <View style={styles.paymentMethodHeader}>
-              <Icon name="credit-card" size={20} color={Colors.primaryBlue500} />
-              <Text style={styles.paymentMethodTitle}>Payment Method</Text>
-            </View>
-            <View style={styles.paymentMethodContent}>
-              <Icon
-                name={payrollData.payment_method === 'MPESA' ? 'smartphone' : 'bank'}
-                size={32}
-                color={Colors.primaryBlue500}
-              />
-              <View>
-                <Text style={styles.paymentMethodText}>
-                  {payrollData.payment_method === 'MPESA' ? 'M-Pesa' : 'Bank Transfer'}
+          <View style={styles.statCard}>
+            <Feather name="activity" size={20} color={THEME_COLORS.info} />
+            <Text style={styles.statValue}>
+              {formatCurrency(dashboardData.summary.average_salary)}
+            </Text>
+            <Text style={styles.statLabel}>Average Salary</Text>
+            {dashboardData.summary.avg_salary_change !== 0 && (
+              <View style={styles.statChange}>
+                <Feather 
+                  name={dashboardData.summary.avg_salary_change > 0 ? 'trending-up' : 'trending-down'} 
+                  size={12} 
+                  color={dashboardData.summary.avg_salary_change > 0 ? THEME_COLORS.success : THEME_COLORS.danger} 
+                />
+                <Text style={[
+                  styles.changeText,
+                  { color: dashboardData.summary.avg_salary_change > 0 ? THEME_COLORS.success : THEME_COLORS.danger }
+                ]}>
+                  {Math.abs(dashboardData.summary.avg_salary_change)}%
                 </Text>
-                {payrollData.payment_method === 'MPESA' && employee?.mpesa_number && (
-                  <Text style={styles.paymentMethodDetail}>
-                    {KenyaConstants.phoneFormat.display(employee.mpesa_number)}
-                  </Text>
-                )}
-                {payrollData.payment_method === 'BANK' && (
-                  <Text style={styles.paymentMethodDetail}>
-                    {employee?.bank_account_number} • {employee?.bank_name}
-                  </Text>
-                )}
               </View>
-            </View>
-          </Card>
-        </>
+            )}
+          </View>
+        </View>
       )}
 
-      {/* Recent Payrolls */}
-      {recentPayrolls && recentPayrolls.length > 0 && (
-        <View style={styles.recentSection}>
+      {/* Quick Actions - Horizontal Scroll */}
+      <View style={styles.section}>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Quick Actions</Text>
+        </View>
+        <ScrollView 
+          horizontal 
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.actionsScrollContent}
+        >
+          <TouchableOpacity 
+            style={styles.actionCard}
+            onPress={() => router.push('/app/payroll/calculate')}
+          >
+            <View style={[styles.actionIcon, { backgroundColor: '#e8f4fd' }]}>
+              <Feather name="calculator" size={24} color={THEME_COLORS.primaryBlue} />
+            </View>
+            <Text style={styles.actionText}>Calculate Payroll</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={styles.actionCard}
+            onPress={() => router.push('/app/payroll/process')}
+          >
+            <View style={[styles.actionIcon, { backgroundColor: '#ecfdf5' }]}>
+              <Feather name="send" size={24} color={THEME_COLORS.success} />
+            </View>
+            <Text style={styles.actionText}>Process Payments</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={styles.actionCard}
+            onPress={() => router.push('/app/payroll/reports')}
+          >
+            <View style={[styles.actionIcon, { backgroundColor: '#eff6ff' }]}>
+              <Feather name="bar-chart-2" size={24} color={THEME_COLORS.info} />
+            </View>
+            <Text style={styles.actionText}>View Reports</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={styles.actionCard}
+            onPress={() => router.push('/app/payroll/salary-structure')}
+          >
+            <View style={[styles.actionIcon, { backgroundColor: '#fefce8' }]}>
+              <Feather name="dollar-sign" size={24} color={THEME_COLORS.warning} />
+            </View>
+            <Text style={styles.actionText}>Salary Structure</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={styles.actionCard}
+            onPress={() => router.push('/app/payroll/statutory')}
+          >
+            <View style={[styles.actionIcon, { backgroundColor: '#fef2f2' }]}>
+              <Feather name="shield" size={24} color={THEME_COLORS.danger} />
+            </View>
+            <Text style={styles.actionText}>Statutory</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={styles.actionCard}
+            onPress={() => router.push('/app/payroll/settings')}
+          >
+            <View style={[styles.actionIcon, { backgroundColor: '#f5f3ff' }]}>
+              <Feather name="settings" size={24} color={THEME_COLORS.primaryBlue} />
+            </View>
+            <Text style={styles.actionText}>Settings</Text>
+          </TouchableOpacity>
+        </ScrollView>
+      </View>
+
+      {/* My Recent Payslips */}
+      {recentPayslips && recentPayslips.length > 0 && (
+        <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Recent Payslips</Text>
-            <TouchableOpacity onPress={() => router.push('/(app)/payroll/history')}>
+            <Text style={styles.sectionTitle}>My Recent Payslips</Text>
+            <TouchableOpacity onPress={() => router.push('/app/payroll/history')}>
               <Text style={styles.viewAllText}>View All</Text>
             </TouchableOpacity>
           </View>
-          {recentPayrolls.slice(0, 3).map((payroll: any) => (
-            <TouchableOpacity
-              key={payroll.id}
-              style={styles.recentPayslip}
-              onPress={() => handleViewPayslip(payroll.id)}
-            >
-              <View style={styles.recentPayslipInfo}>
-                <Text style={styles.recentPeriod}>{payroll.period_name}</Text>
-                <Text style={styles.recentDate}>
-                  Paid on {dayjs(payroll.payment_date).format('DD/MM/YYYY')}
-                </Text>
-              </View>
-              <View style={styles.recentAmountContainer}>
-                <Text style={styles.recentAmount}>
-                  {KenyaConstants.currency.format(payroll.net_salary)}
-                </Text>
-                <Icon name="chevron-right" size={20} color={Colors.textTertiary} />
-              </View>
-            </TouchableOpacity>
-          ))}
+          
+          <View style={styles.payslipsList}>
+            {recentPayslips.slice(0, 3).map((payslip: any) => (
+              <TouchableOpacity
+                key={payslip.id}
+                style={styles.payslipCard}
+                onPress={() => handleViewPayslip(payslip.id)}
+              >
+                <View style={styles.payslipHeader}>
+                  <Text style={styles.payslipPeriod}>{payslip.period_name}</Text>
+                  <Text style={styles.payslipAmount}>
+                    {formatCurrency(payslip.net_salary)}
+                  </Text>
+                </View>
+                
+                <View style={styles.payslipDetails}>
+                  <Text style={styles.payslipDate}>
+                    {payslip.payment_date ? `Paid on ${formatDate(payslip.payment_date)}` : 'Not paid yet'}
+                  </Text>
+                  <View style={[
+                    styles.payslipStatus,
+                    { backgroundColor: getStatusColor(payslip.payment_status) + '20' }
+                  ]}>
+                    <Text style={[
+                      styles.payslipStatusText,
+                      { color: getStatusColor(payslip.payment_status) }
+                    ]}>
+                      {payslip.payment_status}
+                    </Text>
+                  </View>
+                </View>
+                
+                <View style={styles.payslipFooter}>
+                  <TouchableOpacity
+                    onPress={() => handleGeneratePayslip(payslip.id)}
+                    style={styles.downloadButton}
+                  >
+                    <Feather name="download" size={18} color={THEME_COLORS.primaryBlue} />
+                    <Text style={styles.downloadText}>Download PDF</Text>
+                  </TouchableOpacity>
+                </View>
+              </TouchableOpacity>
+            ))}
+          </View>
         </View>
       )}
 
-      {/* Kenya Tax Information */}
-      <Card style={styles.taxInfoCard}>
-        <View style={styles.taxInfoHeader}>
-          <Icon name="info" size={20} color={Colors.info500} />
-          <Text style={styles.taxInfoTitle}>Kenya Tax Information</Text>
+      {/* Period Selector - Horizontal Scroll */}
+      {periods && periods.length > 0 && (
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Payroll Periods</Text>
+          </View>
+          
+          <ScrollView 
+            horizontal 
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.periodsScrollContent}
+          >
+            {periods.map((period: PayrollPeriod) => (
+              <TouchableOpacity
+                key={period.id}
+                style={[
+                  styles.periodCard,
+                  selectedPeriod === period.id && styles.periodCardSelected,
+                ]}
+                onPress={() => setSelectedPeriod(period.id)}
+              >
+                <View style={styles.periodHeader}>
+                  <Text style={[
+                    styles.periodName,
+                    selectedPeriod === period.id && styles.periodNameSelected,
+                  ]}>
+                    {period.name}
+                  </Text>
+                  {period.is_locked && (
+                    <Feather name="lock" size={14} color={THEME_COLORS.warning} />
+                  )}
+                </View>
+                
+                <Text style={styles.periodDate}>
+                  {formatDate(period.start_date)} - {formatDate(period.end_date)}
+                </Text>
+                
+                <View style={[
+                  styles.periodStatus,
+                  { backgroundColor: getStatusColor(period.status) }
+                ]}>
+                  <Text style={styles.periodStatusText}>
+                    {period.status}
+                  </Text>
+                </View>
+                
+                <Text style={styles.payDate}>
+                  Pay Date: {formatDate(period.pay_date)}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
         </View>
-        <Text style={styles.taxInfoText}>
-          Your payroll deductions comply with Kenya Revenue Authority (KRA) regulations. 
-          PAYE is calculated based on graduated tax bands, with personal relief of KSh 2,400 per month.
+      )}
+
+      {/* Kenya Tax Info */}
+      <View style={styles.infoSection}>
+        <View style={styles.infoHeader}>
+          <Feather name="info" size={20} color={THEME_COLORS.info} />
+          <Text style={styles.infoTitle}>Kenya Tax Information</Text>
+        </View>
+        
+        <Text style={styles.infoText}>
+          • NSSF: 6% of pensionable pay (employee) + 6% (employer){'\n'}
+          • NHIF: Based on salary tiers (KSh 150 - 1,700){'\n'}
+          • PAYE: Graduated tax rates with KSh 2,400 personal relief{'\n'}
+          • HELB: KSh 1,500 per month if applicable
         </Text>
+        
         <TouchableOpacity
-          style={styles.taxInfoButton}
-          onPress={() => router.push('/(app)/payroll/tax-info')}
+          style={styles.learnMoreButton}
+          onPress={() => router.push('/app/payroll/tax-info')}
         >
-          <Text style={styles.taxInfoButtonText}>Learn about Kenya taxes</Text>
-          <Icon name="external-link" size={16} color={Colors.primaryBlue500} />
+          <Text style={styles.learnMoreText}>Learn more about Kenya taxes</Text>
+          <Feather name="external-link" size={16} color={THEME_COLORS.primaryBlue} />
         </TouchableOpacity>
-      </Card>
+      </View>
     </ScrollView>
   );
 }
 
+const { width } = Dimensions.get('window');
+const CARD_WIDTH = width * 0.75;
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.backgroundLight,
+    backgroundColor: THEME_COLORS.cream,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: THEME_COLORS.cream,
+  },
+  loadingText: {
+    marginTop: Layout.spacing.md,
+    fontSize: 16,
+    color: THEME_COLORS.textSecondary,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: Layout.spacing.lg,
+    paddingHorizontal: 16,
     paddingTop: Layout.spacing.xl,
     paddingBottom: Layout.spacing.md,
   },
   title: {
-    fontSize: Layout.fontSize['3xl'],
+    fontSize: 24,
     fontWeight: 'bold',
-    color: Colors.primaryBlue800,
-    marginBottom: Layout.spacing.xs,
+    color: THEME_COLORS.primaryBlue,
   },
   subtitle: {
-    fontSize: Layout.fontSize.sm,
-    color: Colors.textSecondary,
+    fontSize: 14,
+    color: THEME_COLORS.textSecondary,
+    marginTop: 4,
   },
-  downloadButton: {
-    padding: Layout.spacing.sm,
-    backgroundColor: Colors.primaryBlue50,
-    borderRadius: Layout.borderRadius.md,
+  statutoryButton: {
+    padding: 12,
+    backgroundColor: THEME_COLORS.gold,
+    borderRadius: 12,
   },
-  flagLine: {
+  statsContainer: {
     flexDirection: 'row',
-    height: 3,
-    borderRadius: Layout.borderRadius.xs,
-    overflow: 'hidden',
-    marginHorizontal: Layout.spacing.lg,
-    marginBottom: Layout.spacing.lg,
+    paddingHorizontal: 16,
+    marginBottom: 24,
+    gap: 12,
   },
-  flagSegment: {
+  statCard: {
     flex: 1,
-  },
-  paymentActionCard: {
-    marginHorizontal: Layout.spacing.lg,
-    marginBottom: Layout.spacing.lg,
-  },
-  paymentActionHeader: {
-    flexDirection: 'row',
+    backgroundColor: THEME_COLORS.white,
+    borderRadius: 12,
+    padding: 16,
     alignItems: 'center',
-    gap: Layout.spacing.sm,
-    marginBottom: Layout.spacing.sm,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
-  paymentActionTitle: {
-    fontSize: Layout.fontSize.lg,
-    fontWeight: '600',
-    color: Colors.textPrimary,
-  },
-  paymentActionText: {
-    fontSize: Layout.fontSize.sm,
-    color: Colors.textSecondary,
-    marginBottom: Layout.spacing.sm,
-  },
-  mpesaNumber: {
-    fontSize: Layout.fontSize.lg,
-    fontWeight: '600',
-    color: Colors.gold600,
-    marginBottom: Layout.spacing.md,
-  },
-  mpesaButton: {
-    backgroundColor: Colors.gold500,
-  },
-  netSalaryCard: {
-    marginHorizontal: Layout.spacing.lg,
-    marginBottom: Layout.spacing.lg,
-  },
-  netSalaryHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: Layout.spacing.md,
-  },
-  netSalaryTitle: {
-    fontSize: Layout.fontSize.lg,
-    fontWeight: '600',
-    color: Colors.textPrimary,
-  },
-  netSalaryAmount: {
-    fontSize: Layout.fontSize['3xl'],
+  statValue: {
+    fontSize: 18,
     fontWeight: 'bold',
-    color: Colors.success500,
+    color: THEME_COLORS.textPrimary,
+    marginTop: 8,
   },
-  netSalaryBreakdown: {
-    gap: Layout.spacing.sm,
+  statLabel: {
+    fontSize: 12,
+    color: THEME_COLORS.textSecondary,
+    marginTop: 4,
+    textAlign: 'center',
   },
-  breakdownRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  breakdownLabel: {
-    fontSize: Layout.fontSize.sm,
-    color: Colors.textSecondary,
-  },
-  breakdownValue: {
-    fontSize: Layout.fontSize.sm,
-    fontWeight: '500',
-    color: Colors.textPrimary,
-  },
-  deductionValue: {
-    color: Colors.danger500,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: Colors.borderLight,
-    marginVertical: Layout.spacing.sm,
-  },
-  netSalaryLabel: {
-    fontSize: Layout.fontSize.md,
-    fontWeight: '600',
-    color: Colors.textPrimary,
-  },
-  netSalaryValue: {
-    fontSize: Layout.fontSize.lg,
-    fontWeight: 'bold',
-    color: Colors.success500,
-  },
-  paymentMethodCard: {
-    marginHorizontal: Layout.spacing.lg,
-    marginBottom: Layout.spacing.lg,
-  },
-  paymentMethodHeader: {
+  statChange: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Layout.spacing.sm,
-    marginBottom: Layout.spacing.md,
+    marginTop: 8,
   },
-  paymentMethodTitle: {
-    fontSize: Layout.fontSize.lg,
+  changeText: {
+    fontSize: 10,
     fontWeight: '600',
-    color: Colors.textPrimary,
+    marginLeft: 4,
   },
-  paymentMethodContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Layout.spacing.md,
-  },
-  paymentMethodText: {
-    fontSize: Layout.fontSize.md,
-    fontWeight: '600',
-    color: Colors.textPrimary,
-  },
-  paymentMethodDetail: {
-    fontSize: Layout.fontSize.sm,
-    color: Colors.textSecondary,
-  },
-  recentSection: {
-    marginHorizontal: Layout.spacing.lg,
-    marginBottom: Layout.spacing.lg,
+  section: {
+    marginBottom: 24,
   },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: Layout.spacing.md,
+    paddingHorizontal: 16,
+    marginBottom: 12,
   },
   sectionTitle: {
-    fontSize: Layout.fontSize.lg,
+    fontSize: 18,
     fontWeight: '600',
-    color: Colors.textPrimary,
+    color: THEME_COLORS.textPrimary,
   },
   viewAllText: {
-    color: Colors.primaryBlue600,
-    fontSize: Layout.fontSize.sm,
+    color: THEME_COLORS.primaryBlue,
+    fontSize: 14,
     fontWeight: '500',
   },
-  recentPayslip: {
+  // Quick Actions Styles
+  actionsScrollContent: {
+    paddingHorizontal: 16,
+    gap: 12,
+  },
+  actionCard: {
+    width: 120,
+    backgroundColor: THEME_COLORS.white,
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  actionIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  actionText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: THEME_COLORS.textPrimary,
+    textAlign: 'center',
+  },
+  // Payslips Styles
+  payslipsList: {
+    paddingHorizontal: 16,
+    gap: 12,
+  },
+  payslipCard: {
+    backgroundColor: THEME_COLORS.white,
+    borderRadius: 12,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  payslipHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: Layout.spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.borderLight,
+    marginBottom: 8,
   },
-  recentPayslipInfo: {
+  payslipPeriod: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: THEME_COLORS.textPrimary,
     flex: 1,
   },
-  recentPeriod: {
-    fontSize: Layout.fontSize.md,
+  payslipAmount: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: THEME_COLORS.success,
+  },
+  payslipDetails: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  payslipDate: {
+    fontSize: 14,
+    color: THEME_COLORS.textSecondary,
+  },
+  payslipStatus: {
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  payslipStatusText: {
+    fontSize: 12,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+  },
+  payslipFooter: {
+    borderTopWidth: 1,
+    borderTopColor: THEME_COLORS.gray100,
+    paddingTop: 12,
+  },
+  downloadButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 8,
+  },
+  downloadText: {
+    color: THEME_COLORS.primaryBlue,
+    fontSize: 14,
     fontWeight: '500',
-    color: Colors.textPrimary,
-    marginBottom: Layout.spacing.xs,
   },
-  recentDate: {
-    fontSize: Layout.fontSize.sm,
-    color: Colors.textSecondary,
+  // Periods Styles
+  periodsScrollContent: {
+    paddingHorizontal: 16,
+    gap: 12,
   },
-  recentAmountContainer: {
+  periodCard: {
+    width: CARD_WIDTH,
+    backgroundColor: THEME_COLORS.white,
+    borderRadius: 12,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+    borderWidth: 1,
+    borderColor: THEME_COLORS.borderLight,
+  },
+  periodCardSelected: {
+    borderColor: THEME_COLORS.primaryBlue,
+    backgroundColor: THEME_COLORS.primaryBlue + '10',
+  },
+  periodHeader: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    gap: Layout.spacing.sm,
+    marginBottom: 8,
   },
-  recentAmount: {
-    fontSize: Layout.fontSize.md,
+  periodName: {
+    fontSize: 16,
     fontWeight: '600',
-    color: Colors.success500,
+    color: THEME_COLORS.textPrimary,
   },
-  taxInfoCard: {
-    marginHorizontal: Layout.spacing.lg,
-    marginBottom: Layout.spacing.xl,
+  periodNameSelected: {
+    color: THEME_COLORS.primaryBlue,
   },
-  taxInfoHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Layout.spacing.sm,
-    marginBottom: Layout.spacing.sm,
+  periodDate: {
+    fontSize: 14,
+    color: THEME_COLORS.textSecondary,
+    marginBottom: 12,
   },
-  taxInfoTitle: {
-    fontSize: Layout.fontSize.md,
+  periodStatus: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginBottom: 12,
+  },
+  periodStatusText: {
+    fontSize: 12,
     fontWeight: '600',
-    color: Colors.textPrimary,
+    color: THEME_COLORS.white,
+    textTransform: 'uppercase',
   },
-  taxInfoText: {
-    fontSize: Layout.fontSize.sm,
-    color: Colors.textSecondary,
-    lineHeight: Layout.lineHeight.normal,
-    marginBottom: Layout.spacing.md,
+  payDate: {
+    fontSize: 14,
+    color: THEME_COLORS.textPrimary,
+    fontWeight: '500',
   },
-  taxInfoButton: {
+  // Info Section
+  infoSection: {
+    backgroundColor: THEME_COLORS.info + '10',
+    borderRadius: 12,
+    marginHorizontal: 16,
+    marginBottom: 24,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: THEME_COLORS.info + '30',
+  },
+  infoHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Layout.spacing.sm,
+    gap: 12,
+    marginBottom: 12,
   },
-  taxInfoButtonText: {
-    color: Colors.primaryBlue600,
-    fontSize: Layout.fontSize.sm,
+  infoTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: THEME_COLORS.textPrimary,
+  },
+  infoText: {
+    fontSize: 14,
+    color: THEME_COLORS.textSecondary,
+    lineHeight: 20,
+    marginBottom: 16,
+  },
+  learnMoreButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  learnMoreText: {
+    color: THEME_COLORS.primaryBlue,
+    fontSize: 14,
     fontWeight: '500',
   },
 });

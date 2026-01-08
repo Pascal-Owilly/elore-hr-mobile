@@ -9,7 +9,7 @@ export const API_ENDPOINTS = {
     CHANGE_PASSWORD: '/auth/change-password/',
     RESET_PASSWORD: '/auth/reset-password/',
     RESET_PASSWORD_CONFIRM: '/auth/reset-password/confirm/',
-    USER_PROFILE: '/auth/me/', // Note: This might be '/employees/me/' based on EmployeeProfileView
+    USER_PROFILE: '/auth/me/',
     USER_DETAIL: (id: string) => `/users/users/${id}/`,
     USERS_LIST: '/users/users/',
   },
@@ -18,7 +18,6 @@ export const API_ENDPOINTS = {
   EMPLOYEES: {
     BASE: '/employees/employees/',
     PROFILE: '/employees/me/',
-    // DASHBOARD: '/employees/dashboard/',
     BULK_CREATE: '/employees/bulk-create/',
     DOCUMENTS: '/employees/documents/',
     EMERGENCY_CONTACTS: '/employees/emergency-contacts/',
@@ -27,7 +26,7 @@ export const API_ENDPOINTS = {
   },
 
   // Attendance (from attendance/urls.py)
-    ATTENDANCE: {
+  ATTENDANCE: {
     CHECK_IN: '/attendance/check-in/',
     CHECK_OUT: '/attendance/check-out/',
     TODAY: '/attendance/today/',
@@ -36,7 +35,7 @@ export const API_ENDPOINTS = {
     SUMMARY: '/attendance/summary/',
     OFFLINE: '/attendance/offline/',
     VERIFY_GEOFENCE: '/attendance/verify-geofence/',
-},
+  },
 
   // Leaves (from leaves/urls.py)
   LEAVES: {
@@ -46,14 +45,14 @@ export const API_ENDPOINTS = {
     APPROVALS: '/leaves/approvals/',
     HOLIDAYS: '/leaves/holidays/',
     POLICIES: '/leaves/policies/',
-    // DASHBOARD: '/leaves/dashboard/',
     KENYA_RULES: '/leaves/kenya-rules/',
     CALENDAR: '/leaves/calendar/',
     REPORT: '/leaves/report/',
   },
 
-  // Payroll (from payroll/urls.py)
+  // Payroll (from payroll/urls.py) - FIXED SYNTAX
   PAYROLL: {
+    // Existing endpoints
     PERIODS: '/payroll/periods/',
     LIST: '/payroll/list/',
     DETAIL: (id: string) => `/payroll/${id}/`,
@@ -63,6 +62,26 @@ export const API_ENDPOINTS = {
     MPESA_PAYMENT: '/payroll/mpesa-payment/',
     STATUTORY_CALCULATION: '/payroll/statutory/',
     REPORT: '/payroll/report/',
+    
+    // NEW: Salary structure endpoints
+    SALARY_STRUCTURES: '/payroll/salary-structures/',
+    MY_SALARY: '/payroll/salary-structures/my_salary/',
+    CALCULATE_NET_SALARY: '/payroll/salary-structures/calculate_net_salary/',
+    
+    // NEW: Dashboard and analytics
+    DASHBOARD: '/payroll/dashboard/',
+    
+    // NEW: Payslip endpoints
+    PAYSLIP: '/payroll/payslip/',
+    // Fixed: Use template literal properly
+    PAYSLIP_PDF: (payrollId: string) => `/payroll/${payrollId}/payslip-pdf/`,
+    
+    // NEW: Audit logs
+    LOGS: '/payroll/logs/',
+    
+    // NEW: Period management - Fixed: Use template literals properly
+    LOCK_PERIOD: (periodId: string) => `/payroll/periods/${periodId}/lock/`,
+    UNLOCK_PERIOD: (periodId: string) => `/payroll/periods/${periodId}/unlock/`,
   },
 
   // Contracts (from contracts/urls.py)
@@ -71,7 +90,6 @@ export const API_ENDPOINTS = {
     TEMPLATES: '/contracts/templates/',
     AMENDMENTS: '/contracts/amendments/',
     BULK_CONTRACTS: '/contracts/bulk-contracts/',
-    // DASHBOARD: '/contracts/dashboard/',
   },
 
   // Organizations (from organizations/urls.py)
@@ -100,7 +118,6 @@ export const API_ENDPOINTS = {
     TEMPLATES: '/reports/templates/',
     GENERATED: '/reports/generated/',
     SCHEDULES: '/reports/schedules/',
-    // DASHBOARDS: '/reports/dashboards/',
     WIDGETS: '/reports/widgets/',
     STATS: '/reports/stats/',
     QUICK_REPORTS: '/reports/quick-reports/',
@@ -124,3 +141,21 @@ export const buildUrl = (endpoint: string, params?: Record<string, any>): string
 
 // Type-safe endpoint access
 export type ApiEndpoint = keyof typeof API_ENDPOINTS;
+
+// Helper functions for payroll
+export const PayrollHelpers = {
+  // Get payroll detail URL
+  getPayrollDetail: (id: string) => buildUrl(API_ENDPOINTS.PAYROLL.DETAIL(id), { id }),
+  
+  // Get payslip PDF URL
+  getPayslipPdf: (payrollId: string) => API_ENDPOINTS.PAYROLL.PAYSLIP_PDF(payrollId),
+  
+  // Get lock period URL
+  getLockPeriod: (periodId: string) => API_ENDPOINTS.PAYROLL.LOCK_PERIOD(periodId),
+  
+  // Get unlock period URL
+  getUnlockPeriod: (periodId: string) => API_ENDPOINTS.PAYROLL.UNLOCK_PERIOD(periodId),
+  
+  // Get organization settings URL
+  getOrganizationSettings: (id: string) => buildUrl(API_ENDPOINTS.ORGANIZATIONS.SETTINGS(':id'), { id }),
+};

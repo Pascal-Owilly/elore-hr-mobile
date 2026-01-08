@@ -1,9 +1,10 @@
-// components/dashboard/LeaveBalanceCard.tsx - FIXED VERSION
+// components/dashboard/LeaveBalanceCard.tsx - Updated version
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { Colors } from '@/constants/Colors'; // Add this import
+import { useTheme } from '@/components/theme/ThemeProvider';
 import { Layout } from '@/constants/Layout';
 import { Icon } from '@/components/ui/Icon';
+import { Card } from '@/components/ui/Card';
 
 export interface LeaveBalance {
   type: 'annual' | 'sick' | 'casual' | 'maternity' | 'paternity' | 'study' | 'unpaid';
@@ -26,20 +27,7 @@ export const LeaveBalanceCard: React.FC<LeaveBalanceCardProps> = ({
   onViewDetails,
   title = 'Leave Balance',
 }) => {
-  // Remove useTheme() and use Colors directly
-  const colors = {
-    card: Colors.white,
-    text: Colors.textPrimary,
-    primary: Colors.primaryBlue500,
-    success: Colors.success500,
-    error: Colors.danger500,
-    info: Colors.info500,
-    secondary: Colors.secondary500,
-    warning: Colors.warning500,
-    textSecondary: Colors.textSecondary,
-    border: Colors.borderLight,
-    white: Colors.white,
-  };
+  const { colors } = useTheme();
 
   const getLeaveTypeIcon = (type: string) => {
     switch (type) {
@@ -48,9 +36,9 @@ export const LeaveBalanceCard: React.FC<LeaveBalanceCardProps> = ({
       case 'sick':
         return { name: 'hospital-box', type: 'material-community' as const, color: colors.error };
       case 'casual':
-        return { name: 'coffee', type: 'material-community' as const, color: colors.info };
+        return { name: 'coffee', type: 'material-community' as const, color: colors.info || colors.primary };
       case 'maternity':
-        return { name: 'baby-carriage', type: 'material-community' as const, color: colors.secondary };
+        return { name: 'baby-carriage', type: 'material-community' as const, color: colors.warning };
       case 'paternity':
         return { name: 'human-male-child', type: 'material-community' as const, color: colors.primary };
       case 'study':
@@ -76,7 +64,7 @@ export const LeaveBalanceCard: React.FC<LeaveBalanceCardProps> = ({
   const totalRemaining = balances.reduce((sum, balance) => sum + balance.remaining, 0);
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.card }]}>
+    <Card variant="elevated" padding="lg" style={styles.container}>
       <View style={styles.header}>
         <View>
           <Text style={[styles.title, { color: colors.text }]}>
@@ -91,8 +79,8 @@ export const LeaveBalanceCard: React.FC<LeaveBalanceCardProps> = ({
             style={[styles.applyButton, { backgroundColor: colors.primary }]}
             onPress={onApplyLeave}
           >
-            <Icon name="plus" type="material-community" size={16} color={colors.white} />
-            <Text style={[styles.applyText, { color: colors.white }]}>
+            <Icon name="plus" type="material-community" size={16} color={colors.card} />
+            <Text style={[styles.applyText, { color: colors.card }]}>
               Apply
             </Text>
           </TouchableOpacity>
@@ -156,16 +144,13 @@ export const LeaveBalanceCard: React.FC<LeaveBalanceCardProps> = ({
           <Icon name="chevron-right" type="material-community" size={16} color={colors.primary} />
         </TouchableOpacity>
       )}
-    </View>
+    </Card>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    borderRadius: Layout.borderRadius.lg,
-    padding: Layout.spacing.lg,
     marginBottom: Layout.spacing.lg,
-    ...Layout.shadow.sm,
   },
   header: {
     flexDirection: 'row',

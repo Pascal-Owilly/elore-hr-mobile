@@ -9,17 +9,18 @@ import {
   Platform,
   ScrollView,
   Alert,
+  Image,
 } from 'react-native';
 import { router } from 'expo-router';
-import { useAuth } from '@lib/providers/AuthProvider'; // CHANGED IMPORT
+import { useAuth } from '@lib/providers/AuthProvider';
 import { Colors } from '@constants/Colors';
-import { Layout } from '@constants/Layout'; 
+import { Layout } from '@constants/Layout';
 import { Icon } from '@components/ui/Icon';
 
 export default function LoginScreen() {
-  const { login, isLoading } = useAuth(); // Now uses the context hook
+  const { login, isLoading } = useAuth();
   const [formData, setFormData] = useState({
-    email: '', // Changed from username to email
+    email: '',
     password: '',
   });
   const [showPassword, setShowPassword] = useState(false);
@@ -34,7 +35,6 @@ export default function LoginScreen() {
     
     if (result.success) {
       console.log('Login successful');
-      // Navigation happens automatically in the hook
     } else {
       Alert.alert('Login Failed', result.error || 'Invalid credentials');
     }
@@ -48,6 +48,20 @@ export default function LoginScreen() {
     router.back();
   };
 
+  const handleQuickFill = (type: 'admin' | 'employee') => {
+    if (type === 'admin') {
+      setFormData({
+        email: 'admin@company.com',
+        password: 'admin123',
+      });
+    } else {
+      setFormData({
+        email: 'employee@company.com',
+        password: 'employee123',
+      });
+    }
+  };
+
   return (
     <KeyboardAvoidingView
       style={styles.container}
@@ -56,56 +70,80 @@ export default function LoginScreen() {
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
       >
-        {/* Header */}
-        <View style={styles.header}>
-          <TouchableOpacity onPress={handleBack} style={styles.backButton}>
-            <Icon name="arrow-back" size={24} color={Colors.primaryBlue600} />
-          </TouchableOpacity>
-          <Text style={styles.title}>Login</Text>
-        </View>
+        {/* Background decorative elements */}
+        <View style={styles.topCircle} />
+        <View style={styles.bottomCircle} />
+        
+        {/* Logo and Header */}
+          <View style={styles.logoContainer}>
+            <View style={styles.logo}>
+              <Icon name="briefcase" type="feather" size={40} color={Colors.white} />
+            </View>
+            <Text style={styles.logoText}>Welcome</Text>
+            <Text style={styles.subtitle}>Sign in to your account</Text>
 
-        {/* Form */}
-        <View style={styles.form}>
-          <View style={styles.inputContainer}>
-            <Icon name="email" size={20} color={Colors.primaryBlue500} style={styles.inputIcon} />
-            <TextInput
-              style={styles.input}
-              placeholder="Email"
-              placeholderTextColor={Colors.gray400}
-              value={formData.email}
-              onChangeText={(text) => setFormData({ ...formData, email: text })}
-              autoCapitalize="none"
-              autoCorrect={false}
-              keyboardType="email-address"
-            />
+          </View>
+          
+
+
+        {/* Form Card */}
+        <View style={styles.formCard}>
+
+          <View style={styles.inputGroup}>
+            <View style={styles.inputLabelContainer}>
+              <Icon name="mail" type="feather" size={16} color={Colors.primaryBlue500} />
+              <Text style={styles.inputLabel}>Email Address</Text>
+            </View>
+            <View style={styles.inputContainer}>
+              <Icon name="at-sign" type="feather" size={20} color={Colors.gray400} style={styles.inputIcon} />
+              <TextInput
+                style={styles.input}
+                placeholder="Enter your email"
+                placeholderTextColor={Colors.gray400}
+                value={formData.email}
+                onChangeText={(text) => setFormData({ ...formData, email: text })}
+                autoCapitalize="none"
+                autoCorrect={false}
+                keyboardType="email-address"
+              />
+            </View>
           </View>
 
-          <View style={styles.inputContainer}>
-            <Icon name="lock" size={20} color={Colors.primaryBlue500} style={styles.inputIcon} />
-            <TextInput
-              style={styles.input}
-              placeholder="Password"
-              placeholderTextColor={Colors.gray400}
-              value={formData.password}
-              onChangeText={(text) => setFormData({ ...formData, password: text })}
-              secureTextEntry={!showPassword}
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
-            <TouchableOpacity
-              onPress={() => setShowPassword(!showPassword)}
-              style={styles.passwordToggle}
-            >
-              <Icon
-                name={showPassword ? 'visibility-off' : 'visibility'}
-                size={20}
-                color={Colors.gray500}
+          <View style={styles.inputGroup}>
+            <View style={styles.inputLabelContainer}>
+              <Icon name="lock" type="feather" size={16} color={Colors.primaryBlue500} />
+              <Text style={styles.inputLabel}>Password</Text>
+            </View>
+            <View style={styles.inputContainer}>
+              <Icon name="key" type="feather" size={20} color={Colors.gray400} style={styles.inputIcon} />
+              <TextInput
+                style={styles.input}
+                placeholder="Enter your password"
+                placeholderTextColor={Colors.gray400}
+                value={formData.password}
+                onChangeText={(text) => setFormData({ ...formData, password: text })}
+                secureTextEntry={!showPassword}
+                autoCapitalize="none"
+                autoCorrect={false}
               />
-            </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => setShowPassword(!showPassword)}
+                style={styles.passwordToggle}
+              >
+                <Icon
+                  name={showPassword ? 'eye-off' : 'eye'}
+                  type="feather"
+                  size={20}
+                  color={Colors.gray500}
+                />
+              </TouchableOpacity>
+            </View>
           </View>
 
           <TouchableOpacity onPress={handleForgotPassword} style={styles.forgotPassword}>
+            <Icon name="help-circle" type="feather" size={16} color={Colors.primaryBlue500} />
             <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
           </TouchableOpacity>
 
@@ -113,34 +151,44 @@ export default function LoginScreen() {
             style={[styles.loginButton, isLoading && styles.loginButtonDisabled]}
             onPress={handleSubmit}
             disabled={isLoading}
+            activeOpacity={0.8}
           >
             {isLoading ? (
               <View style={styles.loadingContainer}>
-                <Icon name="hourglass-empty" size={20} color={Colors.white} style={styles.loadingIcon} />
-                <Text style={styles.loginButtonText}>Logging in...</Text>
+                <Icon name="loader" type="feather" size={20} color={Colors.white} style={styles.loadingIcon} />
+                <Text style={styles.loginButtonText}>Authenticating...</Text>
               </View>
             ) : (
               <View style={styles.loginContainer}>
-                <Icon name="login" size={20} color={Colors.white} style={styles.loginIcon} />
-                <Text style={styles.loginButtonText}>Login</Text>
+                <Icon name="log-in" type="feather" size={20} color={Colors.white} style={styles.loginIcon} />
+                <Text style={styles.loginButtonText}>Sign In to Dashboard</Text>
+                <Icon name="chevron-right" type="feather" size={20} color={Colors.white} />
               </View>
             )}
           </TouchableOpacity>
 
-          {/* Register Link */}
-          <View style={styles.registerContainer}>
-            <Text style={styles.registerText}>Don't have an account?</Text>
-            <TouchableOpacity onPress={() => router.push('/auth/register')}>
-              <Text style={styles.registerLink}> Register</Text>
-            </TouchableOpacity>
-          </View>
         </View>
 
         {/* Footer */}
         <View style={styles.footer}>
+          <View style={styles.footerLinks}>
+            <TouchableOpacity>
+              <Text style={styles.footerLink}>Privacy Policy</Text>
+            </TouchableOpacity>
+            <Text style={styles.footerSeparator}>•</Text>
+            <TouchableOpacity>
+              <Text style={styles.footerLink}>Terms of Service</Text>
+            </TouchableOpacity>
+            <Text style={styles.footerSeparator}>•</Text>
+            <TouchableOpacity>
+              <Text style={styles.footerLink}>Support</Text>
+            </TouchableOpacity>
+          </View>
+          
           <Text style={styles.footerText}>
-            For assistance, contact HR at hr@elorehub.co.ke
+            © 2026 Elore HR Kenya. For assistance: hr@elorehub.co.ke
           </Text>
+          <Text style={styles.versionText}>v1.0.0 • Built for Kenya</Text>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -158,30 +206,137 @@ const styles = StyleSheet.create({
     paddingTop: Layout.spacing.xl,
     paddingBottom: Layout.spacing.xl,
   },
+  topCircle: {
+    position: 'absolute',
+    top: -100,
+    right: -100,
+    width: 300,
+    height: 300,
+    borderRadius: 150,
+    backgroundColor: Colors.primaryBlue50,
+  },
+  bottomCircle: {
+    position: 'absolute',
+    bottom: -150,
+    left: -150,
+    width: 400,
+    height: 400,
+    borderRadius: 200,
+    backgroundColor: Colors.success50,
+  },
   header: {
+    alignItems: 'center',
+    marginTop: Layout.spacing.xl,
+    marginBottom: Layout.spacing.xl,
+  },
+  logoContainer: {
+    alignItems: 'center',
+    marginBottom: Layout.spacing.lg,
+  },
+  logo: {
+    width: 80,
+    height: 80,
+    borderRadius: 20,
+    backgroundColor: Colors.primaryBlue600,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: Layout.spacing.sm,
+    ...Layout.shadow.md,
+  },
+  logoText: {
+    fontSize: 32,
+    fontWeight: 'bold',
+    color: Colors.primaryBlue800,
+    letterSpacing: -0.5,
+  },
+  logoSubtext: {
+    fontSize: 14,
+    color: Colors.success600,
+    fontWeight: '600',
+    backgroundColor: Colors.success50,
+    paddingHorizontal: Layout.spacing.md,
+    paddingVertical: Layout.spacing.xs,
+    borderRadius: Layout.borderRadius.full,
+    marginTop: 4,
+  },
+  welcomeText: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: Colors.textPrimary,
+    marginTop: Layout.spacing.lg,
+    textAlign: 'center',
+  },
+  subtitle: {
+    fontSize: 16,
+    color: Colors.textSecondary,
+    marginTop: Layout.spacing.xs,
+    textAlign: 'center',
+  },
+  quickLoginContainer: {
+    marginBottom: Layout.spacing.lg,
+  },
+  quickLoginText: {
+    fontSize: 14,
+    color: Colors.textSecondary,
+    marginBottom: Layout.spacing.sm,
+  },
+  quickLoginButtons: {
+    flexDirection: 'row',
+    gap: Layout.spacing.md,
+  },
+  quickButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: Layout.spacing.md,
+    paddingVertical: Layout.spacing.sm,
+    borderRadius: Layout.borderRadius.md,
+    gap: Layout.spacing.xs,
+  },
+  quickButtonText: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  formCard: {
+    backgroundColor: Colors.white,
+    borderRadius: Layout.borderRadius.xl,
+    padding: Layout.spacing.xl,
+    marginBottom: Layout.spacing.xl,
+    ...Layout.shadow.lg,
+    borderWidth: 1,
+    borderColor: Colors.borderLight,
+  },
+  formHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: Layout.spacing.xl,
+    gap: Layout.spacing.sm,
   },
-  backButton: {
-    marginRight: Layout.spacing.md,
+  formTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: Colors.textPrimary,
   },
-  title: {
-    fontSize: Layout.fontSize['2xl'],
-    fontWeight: 'bold',
-    color: Colors.primaryBlue800,
+  inputGroup: {
+    marginBottom: Layout.spacing.lg,
   },
-  form: {
-    flex: 1,
+  inputLabelContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: Layout.spacing.sm,
+    gap: Layout.spacing.xs,
+  },
+  inputLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: Colors.textPrimary,
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: Colors.borderLight,
-    borderRadius: Layout.borderRadius.md,
-    marginBottom: Layout.spacing.lg,
-    backgroundColor: Colors.gray50,
+    borderColor: Colors.border,
+    borderRadius: Layout.borderRadius.lg,
+    backgroundColor: Colors.white,
   },
   inputIcon: {
     paddingHorizontal: Layout.spacing.md,
@@ -189,26 +344,30 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     paddingVertical: Layout.spacing.md,
-    fontSize: Layout.fontSize.md,
+    fontSize: 16,
     color: Colors.textPrimary,
   },
   passwordToggle: {
     paddingHorizontal: Layout.spacing.md,
   },
   forgotPassword: {
-    alignSelf: 'flex-end',
-    marginBottom: Layout.spacing.lg,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    marginBottom: Layout.spacing.xl,
+    gap: Layout.spacing.xs,
   },
   forgotPasswordText: {
     color: Colors.primaryBlue600,
-    fontSize: Layout.fontSize.sm,
+    fontSize: 14,
+    fontWeight: '500',
   },
   loginButton: {
     backgroundColor: Colors.primaryBlue600,
-    paddingVertical: Layout.spacing.md,
+    paddingVertical: Layout.spacing.lg,
     borderRadius: Layout.borderRadius.lg,
-    alignItems: 'center',
-    marginBottom: Layout.spacing.lg,
+    marginBottom: Layout.spacing.xl,
+    ...Layout.shadow.sm,
   },
   loginButtonDisabled: {
     backgroundColor: Colors.gray400,
@@ -217,45 +376,125 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: Layout.spacing.sm,
   },
   loadingIcon: {
-    marginRight: Layout.spacing.sm,
+    animation: 'spin 1s linear infinite',
   },
   loginContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: Layout.spacing.sm,
   },
   loginIcon: {
-    marginRight: Layout.spacing.sm,
+    marginRight: -4,
   },
   loginButtonText: {
     color: Colors.white,
-    fontSize: Layout.fontSize.lg,
+    fontSize: 18,
     fontWeight: '600',
+  },
+  socialLogin: {
+    marginBottom: Layout.spacing.xl,
+  },
+  divider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: Layout.spacing.lg,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: Colors.borderLight,
+  },
+  dividerText: {
+    paddingHorizontal: Layout.spacing.md,
+    color: Colors.textSecondary,
+    fontSize: 14,
+  },
+  socialButtons: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: Layout.spacing.md,
+  },
+  socialButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: Layout.spacing.lg,
+    paddingVertical: Layout.spacing.md,
+    borderRadius: Layout.borderRadius.lg,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    gap: Layout.spacing.sm,
+  },
+  socialButtonText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: Colors.textPrimary,
   },
   registerContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
+    alignItems: 'center',
     marginTop: Layout.spacing.xl,
+    paddingTop: Layout.spacing.xl,
+    borderTopWidth: 1,
+    borderTopColor: Colors.borderLight,
+    gap: Layout.spacing.sm,
   },
   registerText: {
     color: Colors.textSecondary,
-    fontSize: Layout.fontSize.md,
+    fontSize: 16,
   },
   registerLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  registerLinkText: {
     color: Colors.primaryBlue600,
-    fontSize: Layout.fontSize.md,
+    fontSize: 16,
     fontWeight: '600',
   },
   footer: {
-    marginTop: 'auto',
-    paddingTop: Layout.spacing.xl,
     alignItems: 'center',
+    marginTop: 'auto',
+  },
+  footerLinks: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: Layout.spacing.md,
+  },
+  footerLink: {
+    color: Colors.primaryBlue600,
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  footerSeparator: {
+    color: Colors.gray400,
+    marginHorizontal: Layout.spacing.sm,
   },
   footerText: {
+    color: Colors.textSecondary,
+    fontSize: 12,
+    textAlign: 'center',
+    marginBottom: Layout.spacing.xs,
+  },
+  versionText: {
     color: Colors.textTertiary,
-    fontSize: Layout.fontSize.sm,
+    fontSize: 11,
     textAlign: 'center',
   },
 });
+
+// Add this to your global styles or create a separate animation
+// For simple animation, you can use:
+const spinAnimation = {
+  animationKeyframes: {
+    '0%': { transform: [{ rotate: '0deg' }] },
+    '100%': { transform: [{ rotate: '360deg' }] },
+  },
+  animationDuration: '1s',
+  animationTimingFunction: 'linear',
+  animationIterationCount: 'infinite',
+};

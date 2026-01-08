@@ -90,7 +90,7 @@ function RootLayoutNav() {
       
       {/* App/Tabs Navigation */}
       <Stack.Screen
-        name="(tabs)"
+        name="app"
         options={{ headerShown: false }}
       />
       

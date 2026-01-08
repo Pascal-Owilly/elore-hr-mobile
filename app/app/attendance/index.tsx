@@ -11,19 +11,30 @@ import {
 import { router } from 'expo-router';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import dayjs from 'dayjs';
-import { Colors } from '@constants/Colors';
-import { Layout } from '@constants/Layout';
-import { Icon } from '@components/ui/Icon';
-import { Card } from '@components/ui/Card';
-import { Button } from '@components/ui/Button';
-import { AttendanceCalendar } from '@components/attendance/AttendanceCalendar';
-import { AttendanceStats } from '@components/attendance/AttendanceStats';
-import { RecentAttendance } from '@components/attendance/RecentAttendance';
-import { api } from '@lib/api/client';
-import { useLocation } from '@lib/hooks/useLocation';
-import { Error } from '@components/ui/Error';
-import { Loading } from '@components/ui/Loading';
-import { toBoolean, parseDjangoNumber } from '@lib/utils/typeUtils';
+import { Colors } from '@/constants/Colors';
+import { Layout } from '@/constants/Layout';
+import { Icon } from '@/components/ui/Icon';
+import { Card } from '@/components/ui/Card';
+import { Button } from '@/components/ui/Button';
+import { AttendanceCalendar } from '@/components/attendance/AttendanceCalendar';
+import { AttendanceStats } from '@/components/attendance/AttendanceStats';
+import { RecentAttendance } from '@/components/attendance/RecentAttendance';
+import { api } from '@/lib/api/client';
+import { useLocation } from '@/lib/hooks/useLocation';
+import { Error } from '@/components/ui/Error';
+import { Loading } from '@/components/ui/Loading';
+import { toBoolean, parseDjangoNumber } from '@/lib/utils/typeUtils';
+
+// Define your custom color themes
+const CustomColors = {
+  cream: '#e9ded3',      // Your cream color
+  primaryBlue: '#0056b3', // Your primary blue
+  gold: '#deab63',       // Your gold color
+  kenyaBlack: '#000000',
+  kenyaRed: '#BB0000',
+  kenyaGreen: '#006600',
+  kenyaWhite: '#FFFFFF',
+};
 
 // Helper to safely convert Django string booleans to actual booleans
 const parseDjangoBoolean = (value: any): boolean => {
@@ -31,13 +42,6 @@ const parseDjangoBoolean = (value: any): boolean => {
   if (typeof value === 'string') return value.toLowerCase() === 'true';
   return false;
 };
-
-// Helper to safely parse Django numeric strings
-// const parseDjangoNumber = (value: any): number => {
-//   if (typeof value === 'number') return value;
-//   if (typeof value === 'string') return parseFloat(value) || 0;
-//   return 0;
-// };
 
 // Types - Updated to match your backend
 interface Attendance {
@@ -355,17 +359,17 @@ export default function AttendanceScreen() {
               Track your daily attendance and working hours
             </Text>
           </View>
-<TouchableOpacity
-  style={styles.locationButton}
-  onPress={handleLocationRefresh}
-  disabled={toBoolean(locationLoading || refreshing || isCheckingIn || isCheckingOut)}
->
-  <Icon 
-    name="navigation" 
-    size={20} 
-    color={toBoolean(locationLoading || refreshing || isCheckingIn || isCheckingOut) ? Colors.textDisabled : Colors.primaryBlue600} 
-  />
-</TouchableOpacity>
+          <TouchableOpacity
+            style={styles.locationButton}
+            onPress={handleLocationRefresh}
+            disabled={toBoolean(locationLoading || refreshing || isCheckingIn || isCheckingOut)}
+          >
+            <Icon 
+              name="navigation" 
+              size={20} 
+              color={toBoolean(locationLoading || refreshing || isCheckingIn || isCheckingOut) ? Colors.textDisabled : CustomColors.primaryBlue} 
+            />
+          </TouchableOpacity>
         </View>
         <View style={styles.content}>
           <Loading message="Loading attendance data..." />
@@ -392,17 +396,17 @@ export default function AttendanceScreen() {
           <Icon 
             name="navigation" 
             size={20} 
-            color={locationLoading || refreshing || isCheckingIn || isCheckingOut ? Colors.textDisabled : Colors.primaryBlue600} 
+            color={locationLoading || refreshing || isCheckingIn || isCheckingOut ? Colors.textDisabled : CustomColors.primaryBlue} 
           />
         </TouchableOpacity>
       </View>
 
       {/* Kenya Flag Line */}
       <View style={styles.flagLine}>
-        <View style={[styles.flagSegment, { backgroundColor: Colors.kenyaBlack }]} />
-        <View style={[styles.flagSegment, { backgroundColor: Colors.kenyaRed }]} />
-        <View style={[styles.flagSegment, { backgroundColor: Colors.kenyaGreen }]} />
-        <View style={[styles.flagSegment, { backgroundColor: Colors.kenyaWhite }]} />
+        <View style={[styles.flagSegment, { backgroundColor: CustomColors.kenyaBlack }]} />
+        <View style={[styles.flagSegment, { backgroundColor: CustomColors.kenyaRed }]} />
+        <View style={[styles.flagSegment, { backgroundColor: CustomColors.kenyaGreen }]} />
+        <View style={[styles.flagSegment, { backgroundColor: CustomColors.kenyaWhite }]} />
       </View>
 
       {/* Content Area with ScrollView */}
@@ -413,7 +417,7 @@ export default function AttendanceScreen() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={handleRefresh}
-            colors={[Colors.primaryBlue500]}
+            colors={[CustomColors.primaryBlue]}
             enabled={!isCheckingIn && !isCheckingOut}
           />
         }
@@ -465,47 +469,46 @@ export default function AttendanceScreen() {
                   </View>
                 )}
 
-{todayAttendance?.distance_from_expected && (
-  <View style={styles.distanceInfo}>
-    <Icon 
-      name="map" 
-      size={16} 
-      color={toBoolean(todayAttendance.is_within_geofence) ? Colors.success500 : Colors.warning500} 
-    />
-    <Text style={[
-      styles.distanceText, 
-      { color: toBoolean(todayAttendance.is_within_geofence) ? Colors.success500 : Colors.warning500 }
-    ]}>
-      {toBoolean(todayAttendance.is_within_geofence) ? 'Within geofence' : 'Outside geofence'} 
-      {parseDjangoNumber(todayAttendance.distance_from_expected) > 1000 
-        ? ` (${(parseDjangoNumber(todayAttendance.distance_from_expected) / 1000).toFixed(1)}km)` 
-        : ` (${parseDjangoNumber(todayAttendance.distance_from_expected).toFixed(0)}m)`}
-    </Text>
-  </View>
-)}
+                {todayAttendance?.distance_from_expected && (
+                  <View style={styles.distanceInfo}>
+                    <Icon 
+                      name="map" 
+                      size={16} 
+                      color={toBoolean(todayAttendance.is_within_geofence) ? Colors.success500 : Colors.warning500} 
+                    />
+                    <Text style={[
+                      styles.distanceText, 
+                      { color: toBoolean(todayAttendance.is_within_geofence) ? Colors.success500 : Colors.warning500 }
+                    ]}>
+                      {toBoolean(todayAttendance.is_within_geofence) ? 'Within geofence' : 'Outside geofence'} 
+                      {parseDjangoNumber(todayAttendance.distance_from_expected) > 1000 
+                        ? ` (${(parseDjangoNumber(todayAttendance.distance_from_expected) / 1000).toFixed(1)}km)` 
+                        : ` (${parseDjangoNumber(todayAttendance.distance_from_expected).toFixed(0)}m)`}
+                    </Text>
+                  </View>
+                )}
 
                 <View style={styles.actionButtons}>
                   {canCheckIn && (
-<Button
-  title="Check In"
-  onPress={handleCheckIn}
-  loading={isCheckingIn}
-  disabled={toBoolean(isCheckingIn || locationLoading || refreshing || !expoLocation?.coords)}
-  style={styles.checkInButton}
-  icon={<Icon name="login" size={20} color={Colors.white} />}
-/>
-
+                    <Button
+                      title="Check In"
+                      onPress={handleCheckIn}
+                      loading={isCheckingIn}
+                      disabled={toBoolean(isCheckingIn || locationLoading || refreshing || !expoLocation?.coords)}
+                      style={[styles.checkInButton, { backgroundColor: CustomColors.primaryBlue }]}
+                      icon={<Icon name="login" size={20} color={Colors.white} />}
+                    />
                   )}
 
                   {canCheckOut && (
-<Button
-  title="Check Out"
-  onPress={handleCheckOut}
-  loading={isCheckingOut}
-  disabled={toBoolean(isCheckingOut || locationLoading || refreshing || !expoLocation?.coords)}
-  style={styles.checkOutButton}
-  icon={<Icon name="logout" size={20} color={Colors.white} />}
-/>
+                    <Button
+                      title="Check Out"
+                      onPress={handleCheckOut}
+                      loading={isCheckingOut}
+                      disabled={toBoolean(isCheckingOut || locationLoading || refreshing || !expoLocation?.coords)}
+                      style={[styles.checkOutButton, { backgroundColor: CustomColors.gold }]}
+                      icon={<Icon name="logout" size={20} color={Colors.white} />}
+                    />
                   )}
 
                   {!canCheckIn && !canCheckOut && todayAttendance?.check_out_time && (
@@ -518,51 +521,51 @@ export default function AttendanceScreen() {
                   )}
                 </View>
 
-{/* Update time display to parse strings */}
-{todayAttendance && (
-  <View style={styles.todayDetails}>
-    {todayAttendance.check_in_time && (
-      <View style={styles.timeDetail}>
-        <Icon name="login" size={16} color={Colors.success500} />
-        <Text style={styles.timeText}>
-          In: {dayjs(todayAttendance.check_in_time).format('h:mm A')}
-        </Text>
-      </View>
-    )}
-    {todayAttendance.check_out_time && (
-      <View style={styles.timeDetail}>
-        <Icon name="logout" size={16} color={Colors.warning500} />
-        <Text style={styles.timeText}>
-          Out: {dayjs(todayAttendance.check_out_time).format('h:mm A')}
-        </Text>
-      </View>
-    )}
-    {parseDjangoNumber(todayAttendance.total_hours) > 0 && (
-      <View style={styles.timeDetail}>
-        <Icon name="clock" size={16} color={Colors.primaryBlue500} />
-        <Text style={styles.timeText}>
-          Total: {parseDjangoNumber(todayAttendance.total_hours).toFixed(1)} hours
-        </Text>
-      </View>
-    )}
-    {parseDjangoNumber(todayAttendance.overtime_hours) > 0 && (
-      <View style={styles.timeDetail}>
-        <Icon name="zap" size={16} color={Colors.gold500} />
-        <Text style={styles.timeText}>
-          OT: {parseDjangoNumber(todayAttendance.overtime_hours).toFixed(1)} hours
-        </Text>
-      </View>
-    )}
-    {!toBoolean(todayAttendance.is_within_geofence) && (
-      <View style={styles.timeDetail}>
-        <Icon name="warning" size={16} color={Colors.warning500} />
-        <Text style={[styles.timeText, { color: Colors.warning500 }]}>
-          Outside geofence
-        </Text>
-      </View>
-    )}
-  </View>
-)}
+                {/* Update time display to parse strings */}
+                {todayAttendance && (
+                  <View style={styles.todayDetails}>
+                    {todayAttendance.check_in_time && (
+                      <View style={styles.timeDetail}>
+                        <Icon name="login" size={16} color={Colors.success500} />
+                        <Text style={styles.timeText}>
+                          In: {dayjs(todayAttendance.check_in_time).format('h:mm A')}
+                        </Text>
+                      </View>
+                    )}
+                    {todayAttendance.check_out_time && (
+                      <View style={styles.timeDetail}>
+                        <Icon name="logout" size={16} color={Colors.warning500} />
+                        <Text style={styles.timeText}>
+                          Out: {dayjs(todayAttendance.check_out_time).format('h:mm A')}
+                        </Text>
+                      </View>
+                    )}
+                    {parseDjangoNumber(todayAttendance.total_hours) > 0 && (
+                      <View style={styles.timeDetail}>
+                        <Icon name="clock" size={16} color={CustomColors.primaryBlue} />
+                        <Text style={styles.timeText}>
+                          Total: {parseDjangoNumber(todayAttendance.total_hours).toFixed(1)} hours
+                        </Text>
+                      </View>
+                    )}
+                    {parseDjangoNumber(todayAttendance.overtime_hours) > 0 && (
+                      <View style={styles.timeDetail}>
+                        <Icon name="zap" size={16} color={CustomColors.gold} />
+                        <Text style={styles.timeText}>
+                          OT: {parseDjangoNumber(todayAttendance.overtime_hours).toFixed(1)} hours
+                        </Text>
+                      </View>
+                    )}
+                    {!toBoolean(todayAttendance.is_within_geofence) && (
+                      <View style={styles.timeDetail}>
+                        <Icon name="warning" size={16} color={Colors.warning500} />
+                        <Text style={[styles.timeText, { color: Colors.warning500 }]}>
+                          Outside geofence
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                )}
               </View>
             </Card>
 
@@ -592,26 +595,26 @@ export default function AttendanceScreen() {
               />
             )}
 
-            {/* Quick Actions */}
+            {/* Quick Actions - FIXED ROUTING */}
             <View style={styles.quickActions}>
-<TouchableOpacity
-  style={styles.quickAction}
-  onPress={() => router.push('/(app)/attendance/history')}
-  disabled={toBoolean(isCheckingIn || isCheckingOut)}
->
-  <View style={[styles.quickActionIcon, { backgroundColor: Colors.primaryBlue50 }]}>
-    <Icon name="history" size={24} color={Colors.primaryBlue600} />
-  </View>
-  <Text style={styles.quickActionText}>History</Text>
-</TouchableOpacity>
+              <TouchableOpacity
+                style={styles.quickAction}
+                onPress={() => router.push('/(app)/attendance/history')}
+                disabled={toBoolean(isCheckingIn || isCheckingOut)}
+              >
+                <View style={[styles.quickActionIcon, { backgroundColor: `${CustomColors.primaryBlue}20` }]}>
+                  <Icon name="history" size={24} color={CustomColors.primaryBlue} />
+                </View>
+                <Text style={styles.quickActionText}>History</Text>
+              </TouchableOpacity>
               
               <TouchableOpacity
                 style={styles.quickAction}
                 onPress={() => router.push('/(app)/attendance/reports')}
                 disabled={isCheckingIn || isCheckingOut}
               >
-                <View style={[styles.quickActionIcon, { backgroundColor: Colors.success50 }]}>
-                  <Icon name="bar-chart" size={24} color={Colors.success600} />
+                <View style={[styles.quickActionIcon, { backgroundColor: `${Colors.success500}20` }]}>
+                  <Icon name="bar-chart" size={24} color={Colors.success500} />
                 </View>
                 <Text style={styles.quickActionText}>Reports</Text>
               </TouchableOpacity>
@@ -621,8 +624,8 @@ export default function AttendanceScreen() {
                 onPress={() => router.push('/(app)/attendance/locations')}
                 disabled={isCheckingIn || isCheckingOut}
               >
-                <View style={[styles.quickActionIcon, { backgroundColor: Colors.info50 }]}>
-                  <Icon name="map" size={24} color={Colors.info600} />
+                <View style={[styles.quickActionIcon, { backgroundColor: `${Colors.info500}20` }]}>
+                  <Icon name="map" size={24} color={Colors.info500} />
                 </View>
                 <Text style={styles.quickActionText}>Locations</Text>
               </TouchableOpacity>
@@ -631,7 +634,7 @@ export default function AttendanceScreen() {
             {/* Geofencing Info */}
             <Card style={styles.geofenceCard}>
               <View style={styles.geofenceHeader}>
-                <Icon name="shield" size={20} color={Colors.primaryBlue500} />
+                <Icon name="shield" size={20} color={CustomColors.primaryBlue} />
                 <Text style={styles.geofenceTitle}>Geofenced Attendance</Text>
               </View>
               <Text style={styles.geofenceText}>
@@ -643,7 +646,7 @@ export default function AttendanceScreen() {
                 disabled={isCheckingIn || isCheckingOut}
               >
                 <Text style={styles.geofenceButtonText}>View Approved Locations</Text>
-                <Icon name="chevron-right" size={20} color={Colors.primaryBlue500} />
+                <Icon name="chevron-right" size={20} color={CustomColors.primaryBlue} />
               </TouchableOpacity>
             </Card>
 
@@ -675,7 +678,7 @@ function getStatusColor(status?: string): string {
     case 'WEEKEND':
       return Colors.gray400;
     case 'HOLIDAY':
-      return Colors.gold500;
+      return CustomColors.gold; // Using your gold color for holidays
     default:
       return Colors.gray400;
   }
@@ -703,7 +706,7 @@ function getStatusText(status?: string): string {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.backgroundLight,
+    backgroundColor: CustomColors.cream, // Using your cream color as background
   },
   header: {
     flexDirection: 'row',
@@ -712,13 +715,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: Layout.spacing.lg,
     paddingTop: Layout.spacing.xl,
     paddingBottom: Layout.spacing.md,
-    backgroundColor: Colors.backgroundLight,
+    backgroundColor: CustomColors.cream,
     zIndex: 1,
   },
   title: {
     fontSize: Layout.fontSize['3xl'],
     fontWeight: 'bold',
-    color: Colors.primaryBlue800,
+    color: CustomColors.primaryBlue, // Using your primary blue
     marginBottom: Layout.spacing.xs,
   },
   subtitle: {
@@ -727,7 +730,7 @@ const styles = StyleSheet.create({
   },
   locationButton: {
     padding: Layout.spacing.sm,
-    backgroundColor: Colors.primaryBlue50,
+    backgroundColor: `${CustomColors.primaryBlue}10`, // Light blue with opacity
     borderRadius: Layout.borderRadius.md,
   },
   flagLine: {
@@ -750,6 +753,7 @@ const styles = StyleSheet.create({
   statusCard: {
     marginHorizontal: Layout.spacing.lg,
     marginBottom: Layout.spacing.lg,
+    backgroundColor: Colors.white,
   },
   statusHeader: {
     marginBottom: Layout.spacing.md,
@@ -808,10 +812,10 @@ const styles = StyleSheet.create({
     gap: Layout.spacing.sm,
   },
   checkInButton: {
-    backgroundColor: Colors.success500,
+    backgroundColor: CustomColors.primaryBlue,
   },
   checkOutButton: {
-    backgroundColor: Colors.warning500,
+    backgroundColor: CustomColors.gold,
   },
   completedStatus: {
     flexDirection: 'row',
@@ -872,6 +876,7 @@ const styles = StyleSheet.create({
   geofenceCard: {
     marginHorizontal: Layout.spacing.lg,
     marginVertical: Layout.spacing.md,
+    backgroundColor: Colors.white,
   },
   geofenceHeader: {
     flexDirection: 'row',
@@ -887,8 +892,8 @@ const styles = StyleSheet.create({
   geofenceText: {
     fontSize: Layout.fontSize.sm,
     color: Colors.textSecondary,
-    // lineHeight: Layout.lineHeight.normal,
-    // marginBottom: Layout.spacing.md,
+    lineHeight: 20,
+    marginBottom: Layout.spacing.md,
   },
   geofenceButton: {
     flexDirection: 'row',
@@ -897,7 +902,7 @@ const styles = StyleSheet.create({
     paddingVertical: Layout.spacing.sm,
   },
   geofenceButtonText: {
-    color: Colors.primaryBlue600,
+    color: CustomColors.primaryBlue,
     fontWeight: '500',
   },
   offlineStatus: {

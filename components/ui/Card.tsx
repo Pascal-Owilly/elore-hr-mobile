@@ -1,5 +1,13 @@
-import React from 'react';
-import { View, StyleSheet, ViewStyle } from 'react-native';
+import React, { ReactNode } from 'react';
+import {
+  View,
+  StyleSheet,
+  ViewStyle,
+  TouchableOpacity,
+  TouchableOpacityProps,
+} from 'react-native';
+import { Colors } from '@/constants/Colors';
+import { Layout } from '@/constants/Layout';
 
 interface CardProps {
   children: React.ReactNode;
@@ -7,6 +15,7 @@ interface CardProps {
   variant?: 'elevated' | 'outlined' | 'filled';
   padding?: 'none' | 'sm' | 'md' | 'lg';
 }
+
 
 const Card: React.FC<CardProps> = ({
   children,

@@ -5,13 +5,6 @@ import NetInfo from '@react-native-community/netinfo';
 import { KenyaConstants } from '@constants/KenyaConstants';
 import { API_ENDPOINTS } from './endpoints';
 
-console.log('🌐 API Configuration Debug:');
-console.log('1. API_BASE_URL set to:', process.env.EXPO_PUBLIC_API_BASE_URL);
-console.log('2. Full API endpoint:', `${process.env.EXPO_PUBLIC_API_BASE_URL}/api`);
-console.log('3. Trying Django login endpoint:', `${process.env.EXPO_PUBLIC_API_BASE_URL}/api/auth/login/`);
-console.log('4. Constants.expoConfig?.extra:', Constants.expoConfig?.extra);
-console.log('5. process.env.EXPO_PUBLIC_API_BASE_URL:', process.env.EXPO_PUBLIC_API_BASE_URL);
-
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8000';
 
 
@@ -405,6 +398,7 @@ export const kenyaApi = {
       }
     });
   },
+  
 
   // Geofencing
   verifyGeofence: async (data: {
@@ -541,3 +535,120 @@ export default api;
 
 // Export API base URL constant
 export { API_BASE_URL };
+
+
+// Leave Types API
+export const leaveApi = {
+  // Leave Types
+  getLeaveTypes: (organizationId: string) => 
+    api.get(`/leaves/types/?organization=${organizationId}`),
+  
+  createLeaveType: (data: any) => 
+    api.post('/leaves/types/', data),
+  
+  updateLeaveType: (id: string, data: any) => 
+    api.patch(`/leaves/types/${id}/`, data),
+
+  // Leave Requests
+  getLeaveRequests: (params?: any) => 
+    api.get('/leaves/requests/', { params }),
+  
+  getLeaveRequest: (id: string) => 
+    api.get(`/leaves/requests/${id}/`),
+  
+  createLeaveRequest: (data: any) => 
+    api.post('/leaves/requests/', data),
+  
+  updateLeaveRequest: (id: string, data: any) => 
+    api.patch(`/leaves/requests/${id}/`, data),
+  
+  submitLeaveRequest: (id: string) => 
+    api.post(`/leaves/requests/${id}/submit/`),
+  
+  approveLeaveRequest: (id: string, comments?: string) => 
+    api.post(`/leaves/requests/${id}/approve/`, { comments }),
+  
+  rejectLeaveRequest: (id: string, comments?: string) => 
+    api.post(`/leaves/requests/${id}/reject/`, { comments }),
+  
+  cancelLeaveRequest: (id: string) => 
+    api.post(`/leaves/requests/${id}/cancel/`),
+  
+  getLeaveRequestTimeline: (id: string) => 
+    api.get(`/leaves/requests/${id}/timeline/`),
+
+  // Leave Balance
+  getLeaveBalances: (params?: any) => 
+    api.get('/leaves/balances/', { params }),
+  
+  getLeaveSummary: (params: { employee: string; year: string }) => 
+    api.get('/leaves/balances/summary/', { params }),
+  
+  calculateBalance: (data: { employee_id: string; year: string }) => 
+    api.post('/leaves/balances/calculate_balance/', data),
+
+  // Leave Approvals
+  getPendingApprovals: () => 
+    api.get('/leaves/approvals/pending/'),
+  
+  updateApproval: (id: string, data: any) => 
+    api.patch(`/leaves/approvals/${id}/`, data),
+
+  // Public Holidays
+  getPublicHolidays: (params?: any) => 
+    api.get('/leaves/holidays/', { params }),
+  
+  getUpcomingHolidays: (organizationId: string, days?: number) => 
+    api.get('/leaves/holidays/upcoming/', { 
+      params: { organization: organizationId, days } 
+    }),
+
+  // Leave Policy
+  getLeavePolicy: (organizationId: string) => 
+    api.get('/leaves/policies/', { params: { organization: organizationId } }),
+  
+  validateLeave: (policyId: string, data: any) => 
+    api.get(`/leaves/policies/${policyId}/validate_leave/`, { params: data }),
+
+  // Dashboard and Reports
+  getLeaveDashboard: (organizationId: string) => 
+    api.get('/leaves/dashboard/', { params: { organization: organizationId } }),
+  
+  getLeaveCalendar: (params: any) => 
+    api.get('/leaves/calendar/', { params }),
+  
+  generateLeaveReport: (data: any) => 
+    api.post('/leaves/report/', data),
+
+  // Kenya Rules
+  getKenyaLeaveRules: () => 
+    api.get('/leaves/kenya-rules/'),
+  
+  calculateMaternityLeave: (data: any) => 
+    api.post('/leaves/kenya-rules/calculate_maternity_entitlement/', data),
+  
+  calculateAnnualLeave: (data: any) => 
+    api.post('/leaves/kenya-rules/calculate_annual_leave/', data),
+
+  // Quick Actions
+  getUpcomingLeaves: (organizationId: string) => 
+    api.get('/leaves/requests/upcoming/', { params: { organization: organizationId } }),
+  
+  getOnLeaveToday: (organizationId: string) => 
+    api.get('/leaves/requests/on_leave_today/', { params: { organization: organizationId } }),
+};
+
+// Offline leave operations
+export const offlineLeaveApi = {
+  createLeaveRequest: (data: any) => 
+    offlineApi.post('/leaves/requests/', data),
+  
+  updateLeaveRequest: (id: string, data: any) => 
+    offlineApi.patch(`/leaves/requests/${id}/`, data),
+  
+  submitLeaveRequest: (id: string) => 
+    offlineApi.post(`/leaves/requests/${id}/submit/`),
+  
+  approveLeaveRequest: (id: string, comments?: string) => 
+    offlineApi.post(`/leaves/requests/${id}/approve/`, { comments }),
+};

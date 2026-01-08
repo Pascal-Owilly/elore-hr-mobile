@@ -139,16 +139,58 @@ const loadAuthState = async () => {
       }
 
       setToken(accessToken);
-      setUser(JSON.parse(userData));
+      
+      const parsedUser = JSON.parse(userData);
+      setUser(parsedUser);
+      
+      // Load employee data if available
       if (employeeData) {
-        setEmployee(JSON.parse(employeeData));
+        try {
+          const parsedEmployee = JSON.parse(employeeData);
+          setEmployee(parsedEmployee);
+        } catch (e) {
+          console.error('Error parsing employee data:', e);
+        }
+      } else {
+        // If no saved employee data, try to fetch it
+        // But only for non-admin users
+        const userRole = parsedUser.role || 
+          (parsedUser.is_superuser ? 'ADMIN' : 
+           parsedUser.is_staff ? 'HR' : 'EMPLOYEE');
+        
+        if (userRole !== 'ADMIN' && userRole !== 'HR') {
+          await fetchEmployeeProfile();
+        }
       }
     }
   } catch (error) {
     console.error('Error loading auth state:', error);
-    // Don't clear auth data on error, just set loading to false
   } finally {
     setIsLoading(false);
+  }
+};
+
+const fetchEmployeeData = async () => {
+  try {
+    console.log('🔄 Manually fetching employee data...');
+    
+    // Clear any existing employee data
+    await SecureStore.deleteItemAsync(AUTH_KEYS.EMPLOYEE_DATA);
+    setEmployee(null);
+    
+    // Fetch fresh data
+    const employeeData = await fetchEmployeeProfile();
+    
+    if (employeeData) {
+      console.log('✅ Employee data fetched successfully');
+      return { success: true, data: employeeData };
+    } else {
+      console.log('⚠️ No employee data found');
+      return { success: false, error: 'No employee data found' };
+    }
+  } catch (error: any) {
+    console.error('❌ Error fetching employee data:', error);
+    return { success: false, error: error.message };
   }
 };
 
@@ -177,81 +219,205 @@ const clearAuthData = async () => {
   }
 };
 
-  const saveAuthData = async (data: AuthResponse) => {
-    try {
-      await saveAuthDataUtil(data);
-      setToken(data.access);
-      setUser(data.user || null);
-      setEmployee(data.employee || null);
-    } catch (error) {
-      console.error('Error saving auth data:', error);
-      throw error;
+const saveAuthData = async (data: AuthResponse) => {
+  try {
+    await saveAuthDataUtil(data);
+    setToken(data.access);
+    setUser(data.user || null);
+    
+    // If employee data comes from login response, use it
+    if (data.employee) {
+      setEmployee(data.employee);
+      await SecureStore.setItemAsync(
+        AUTH_KEYS.EMPLOYEE_DATA, 
+        JSON.stringify(data.employee)
+      );
+    } else {
+      // Otherwise, clear existing employee data
+      setEmployee(null);
+      await SecureStore.deleteItemAsync(AUTH_KEYS.EMPLOYEE_DATA);
     }
-  };
+  } catch (error) {
+    console.error('Error saving auth data:', error);
+    throw error;
+  }
+};
 
 
-  const login = async (credentials: LoginCredentials) => {
-    try {
-      setIsLoading(true);
-      
-      // Django REST Framework JWT endpoint
-      const response = await api.post<AuthResponse>(API_ENDPOINTS.AUTH.LOGIN, {
-        email: credentials.email || credentials.email,
-        password: credentials.password,
-      });
-      
-      await saveAuthData(response.data);
-      
-      // Save remember me preference
-      if (credentials.rememberMe) {
-        await SecureStore.setItemAsync(AUTH_KEYS.REMEMBER_ME, 'true');
-      }
-      
-      // Fetch employee profile if user is employee
-      if (response.data.user && !response.data.user.is_staff && !response.data.user.is_superuser) {
-        await fetchEmployeeProfile();
-      }
-      
-      return { success: true, data: response.data };
-    } catch (error: any) {
-      console.error('Login error:', error);
-      
-      const message = parseDjangoError(error);
-      
-      return { success: false, error: message };
-    } finally {
-      setIsLoading(false);
+const login = async (credentials: LoginCredentials) => {
+  try {
+    setIsLoading(true);
+    
+    // Django REST Framework JWT endpoint
+    const response = await api.post<AuthResponse>(API_ENDPOINTS.AUTH.LOGIN, {
+      email: credentials.email || credentials.username, // Fixed: use email or username
+      password: credentials.password,
+    });
+    
+    await saveAuthData(response.data);
+    
+    // Save remember me preference
+    if (credentials.rememberMe) {
+      await SecureStore.setItemAsync(AUTH_KEYS.REMEMBER_ME, 'true');
     }
-  };
+    
+    // ALWAYS try to fetch employee profile after login
+    await fetchEmployeeProfile();
+    
+    return { success: true, data: response.data };
+  } catch (error: any) {
+    console.error('Login error:', error);
+    
+    const message = parseDjangoError(error);
+    
+    return { success: false, error: message };
+  } finally {
+    setIsLoading(false);
+  }
+};
 
-  const fetchEmployeeProfile = async () => {
-    try {
-      const response = await api.get<Employee>(API_ENDPOINTS.EMPLOYEES.PROFILE);
-      setEmployee(response.data);
-      await SecureStore.setItemAsync(AUTH_KEYS.EMPLOYEE_DATA, JSON.stringify(response.data));
-      return response.data;
-    } catch (error) {
-      console.error('Error fetching employee profile:', error);
-      return null;
+// lib/hooks/useAuth.ts - Updated fetchEmployeeProfile function
+const fetchEmployeeProfile = async () => {
+  try {
+    console.log('🔍 Fetching employee profile from:', '/employees/me/');
+    
+    // Clear any cached employee data first
+    await SecureStore.deleteItemAsync(AUTH_KEYS.EMPLOYEE_DATA);
+    
+    const response = await api.get('/employees/me/');
+    
+    console.log('📋 Raw API Response:', {
+      status: response.status,
+      data: response.data,
+      dataType: typeof response.data,
+      isArray: Array.isArray(response.data),
+      keys: response.data ? Object.keys(response.data) : [],
+    });
+    
+    // Log all available data
+    console.log('📊 Employee Data Breakdown:');
+    console.log('- employee_number:', response.data?.employee_number);
+    console.log('- job_title:', response.data?.job_title);
+    console.log('- employment_type:', response.data?.employment_type);
+    console.log('- department:', response.data?.department);
+    console.log('- department_name:', response.data?.department_name);
+    console.log('- organization:', response.data?.organization);
+    console.log('- organization_data:', response.data?.organization_data);
+    console.log('- has organization field:', 'organization' in (response.data || {}));
+    
+    // Check for nested organization data
+    let organizationData = null;
+    
+    if (response.data?.organization_data) {
+      // If organization_data exists in the response
+      organizationData = response.data.organization_data;
+      console.log('✅ Found organization_data:', organizationData);
+    } else if (response.data?.organization) {
+      // If organization is a direct field (could be ID or object)
+      organizationData = response.data.organization;
+      console.log('✅ Found organization field:', organizationData);
+    } else if (response.data?.department && response.data.department.organization) {
+      // Try to get organization from department
+      organizationData = response.data.department.organization;
+      console.log('✅ Found organization via department:', organizationData);
     }
-  };
+    
+    // Prepare employee data
+    const employeeData = {
+      id: response.data?.id || undefined,
+      employee_number: response.data?.employee_number || undefined,
+      job_title: response.data?.job_title || undefined,
+      employment_type: response.data?.employment_type || undefined,
+      hire_date: response.data?.hire_date || undefined,
+      basic_salary: response.data?.basic_salary || undefined,
+      
+      // Organization data
+      organization: organizationData,
+      
+      // Department data
+      department: response.data?.department || undefined,
+      department_name: response.data?.department_name || undefined,
+      
+      // Branch data
+      branch: response.data?.branch || undefined,
+      branch_name: response.data?.branch_name || undefined,
+      
+      // Allowances
+      housing_allowance: response.data?.housing_allowance || undefined,
+      transport_allowance: response.data?.transport_allowance || undefined,
+      medical_allowance: response.data?.medical_allowance || undefined,
+      
+      // Statutory info
+      nssf_number: response.data?.nssf_number || undefined,
+      nhif_number: response.data?.nhif_number || undefined,
+      kra_pin: response.data?.kra_pin || undefined,
+      
+      // Payment info
+      payment_method: response.data?.payment_method || undefined,
+      bank_account_number: response.data?.bank_account_number || undefined,
+      bank_name: response.data?.bank_name || undefined,
+      mpesa_number: response.data?.mpesa_number || undefined,
+      
+      // Employment status
+      employment_status: response.data?.employment_status || undefined,
+    };
+    
+    console.log('✅ Prepared employee data:', employeeData);
+    console.log('✅ Has organization:', !!employeeData.organization);
+    
+    // Save to state and storage
+    setEmployee(employeeData);
+    await SecureStore.setItemAsync(
+      AUTH_KEYS.EMPLOYEE_DATA, 
+      JSON.stringify(employeeData)
+    );
+    
+    return employeeData;
+    
+  } catch (error: any) {
+    console.error('❌ Error fetching employee profile:', {
+      message: error.message,
+      status: error.response?.status,
+      response: error.response?.data,
+      url: error.config?.url,
+    });
+    
+    // Check specific error types
+    if (error.response?.status === 404) {
+      console.warn('⚠️ Employee profile not found (404)');
+    } else if (error.response?.status === 401) {
+      console.warn('⚠️ Unauthorized (401) - token may be invalid');
+    } else if (error.response?.status === 403) {
+      console.warn('⚠️ Forbidden (403) - no permission');
+    }
+    
+    return null;
+  }
+};
 
-  const logout = async () => {
+const logout = async () => {
+  try {
+    setIsLoading(true);
+    
+    // Try to call Django logout endpoint if it exists
     try {
-      setIsLoading(true);
-      
-      // Clear auth data first (Django JWT doesn't typically need logout API call)
-      await clearAuthData();
-      
-      // Navigate to login
-      router.replace('/auth/login');
-    } catch (error) {
-      console.error('Logout error:', error);
-      throw error;
-    } finally {
-      setIsLoading(false);
+      await api.post(API_ENDPOINTS.AUTH.LOGOUT);
+    } catch (apiError) {
+      console.log('Logout API call failed, proceeding with local logout');
     }
-  };
+    
+    // Clear auth data
+    await clearAuthData();
+    
+    // Navigate to login
+    router.replace('/auth/login');
+  } catch (error) {
+    console.error('Logout error:', error);
+    throw error;
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   const register = async (data: RegisterData) => {
     try {
@@ -502,6 +668,8 @@ const clearAuthData = async () => {
     forgotPassword,
     resetPassword,
     fetchEmployeeProfile,
+    fetchEmployeeData, // Add this
+
     
     // Utilities
     saveAuthData,
