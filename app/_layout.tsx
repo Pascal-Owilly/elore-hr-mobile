@@ -3,16 +3,16 @@ import React, { useEffect } from 'react';
 import { Stack, router, useSegments, useRootNavigationState } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { ThemeProvider } from '@components/theme/ThemeProvider';
-import { QueryProvider } from '@lib/providers/QueryProvider';
-import { AuthProvider, useAuth } from '@lib/providers/AuthProvider'; // Import useAuth
-import { NotificationProvider } from '@lib/providers/NotificationProvider';
-import { OfflineProvider } from '@lib/providers/OfflineProvider';
+import { ThemeProvider } from '../components/theme/ThemeProvider';
+import { QueryProvider } from '../lib/providers/QueryProvider';
+import { AuthProvider, useAuth } from '../lib/providers/AuthProvider';
+import { NotificationProvider } from '../lib/providers/NotificationProvider';
+import { OfflineProvider } from '../lib/providers/OfflineProvider';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import * as SplashScreen from 'expo-splash-screen';
 import { useFonts } from 'expo-font';
-import { Colors } from '@constants/Colors';
-import { Layout } from '@constants/Layout';
+import { Colors } from '../constants/Colors';
+import { Layout } from '../constants/Layout';
 import { View, ActivityIndicator } from 'react-native';
 
 // Prevent splash screen from auto-hiding
@@ -31,7 +31,7 @@ function RootLayoutNav() {
     if (isAuthenticated && inAuthGroup) {
       // If authenticated and trying to access auth screens, redirect to app
       console.log('🔄 Redirecting authenticated user to app');
-      router.replace('/app'); // Or '/(app)'
+      router.replace('/(app)/dashboard'); // Fixed: Use (app)/dashboard
     } else if (!isAuthenticated && !inAuthGroup) {
       // If not authenticated and trying to access app screens, redirect to login
       console.log('🔄 Redirecting unauthenticated user to login');
@@ -70,27 +70,15 @@ function RootLayoutNav() {
         options={{ headerShown: false }}
       />
       
-      {/* Auth Screens */}
+      {/* Auth Screens GROUP - REPLACE INDIVIDUAL SCREENS WITH THIS */}
       <Stack.Screen
-        name="auth/login"
-        options={{
-          title: 'Login',
-          headerBackTitle: 'Back',
-          headerShown: false, // Hide header for login
-        }}
-      />
-      
-      <Stack.Screen
-        name="auth/register"
-        options={{
-          title: 'Register',
-          headerBackTitle: 'Back',
-        }}
+        name="auth"
+        options={{ headerShown: false }}
       />
       
       {/* App/Tabs Navigation */}
       <Stack.Screen
-        name="app"
+        name="(app)"
         options={{ headerShown: false }}
       />
       

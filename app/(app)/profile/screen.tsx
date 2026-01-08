@@ -62,35 +62,58 @@ export default function ProfileScreen() {
     }
   }, [user]);
 
-  const handleLogout = async () => {
-    Alert.alert(
-      'Logout',
-      'Are you sure you want to logout?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Logout',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await logout();
-              router.replace('/auth/login');
-            } catch (error) {
-              console.error('Logout error:', error);
-              Alert.alert('Error', 'Unable to logout. Please try again.');
+const handleLogout = async () => {
+  Alert.alert(
+    'Logout',
+    'Are you sure you want to logout?',
+    [
+      {
+        text: 'Cancel',
+        style: 'cancel',
+      },
+      {
+        text: 'Logout',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            const result = await logout();
+            
+            if (result.success) {
+              // Logout was successful, user will be redirected to /
+              // You can optionally show a success message
+              Alert.alert(
+                'Logged Out',
+                'You have been successfully logged out.',
+                [{ text: 'OK' }]
+              );
+            } else {
+              // Logout failed but user was still redirected
+              Alert.alert(
+                'Logout Error',
+                result.error || 'Failed to logout completely.',
+                [{ text: 'OK' }]
+              );
             }
-          },
+          } catch (error: any) {
+            console.error('Logout error:', error);
+            Alert.alert(
+              'Error',
+              'Unable to logout. Please try again.',
+              [{ text: 'OK' }]
+            );
+          }
         },
-      ],
-      { cancelable: true }
-    );
-  };
+      },
+    ],
+    { cancelable: true }
+  );
+};
 
   const menuItems = [
     {
       title: 'Change Password',
       icon: 'lock-closed-outline',
-      onPress: () => router.push('/app/profile/change-password'),
+      onPress: () => router.push('/(app)/profile/change-password'),
       visible: true,
     }
   ];
@@ -149,7 +172,7 @@ export default function ProfileScreen() {
             )}
             <TouchableOpacity 
               style={styles.editButton}
-              onPress={() => router.push('/app/profile/edit')}
+              // onPress={() => router.push('/app/profile/edit')}
             >
               <Feather name="edit-2" size={16} color={THEME_COLORS.white} />
             </TouchableOpacity>

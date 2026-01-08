@@ -9,7 +9,6 @@ import {
   Platform,
   ScrollView,
   Alert,
-  Image,
 } from 'react-native';
 import { router } from 'expo-router';
 import { useAuth } from '@lib/providers/AuthProvider';
@@ -41,23 +40,36 @@ export default function LoginScreen() {
   };
 
   const handleForgotPassword = () => {
-    Alert.alert('Forgot Password', 'Please contact your HR administrator');
+    router.push('/auth/reset-password');
   };
 
-  const handleBack = () => {
-    router.back();
+  const handleRequestAccess = () => {
+    Alert.alert(
+      'Request Access',
+      'Please contact your HR department or system administrator to request access to the HR System.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Contact HR', 
+          onPress: () => {
+            // You could add email functionality here
+            // Linking.openURL('mailto:hr@company.com?subject=HR System Access Request')
+          }
+        }
+      ]
+    );
   };
 
   const handleQuickFill = (type: 'admin' | 'employee') => {
     if (type === 'admin') {
       setFormData({
-        email: 'admin@company.com',
-        password: 'admin123',
+        email: 'owillypascal@gmail.com',
+        password: 'kkkk1111',
       });
     } else {
       setFormData({
-        email: 'employee@company.com',
-        password: 'employee123',
+        email: 'kennedy@gmail.com',
+        password: 'kkkk1111',
       });
     }
   };
@@ -77,47 +89,68 @@ export default function LoginScreen() {
         <View style={styles.bottomCircle} />
         
         {/* Logo and Header */}
+        <View style={styles.header}>
           <View style={styles.logoContainer}>
             <View style={styles.logo}>
               <Icon name="briefcase" type="feather" size={40} color={Colors.white} />
             </View>
-            <Text style={styles.logoText}>Welcome</Text>
-            <Text style={styles.subtitle}>Sign in to your account</Text>
-
+            <Text style={styles.logoText}>Elore HR Kenya</Text>
+            <Text style={styles.subtitle}>Employee Portal</Text>
           </View>
-          
+        </View>
 
+        {/* Quick Login Buttons - Only shown in development */}
+        {__DEV__ && (
+          <View style={styles.quickLoginContainer}>
+            <Text style={styles.quickLoginText}>Demo Accounts (Development Only):</Text>
+            <View style={styles.quickLoginButtons}>
+              <TouchableOpacity
+                style={[styles.quickButton, { backgroundColor: Colors.primaryBlue100 }]}
+                onPress={() => handleQuickFill('admin')}
+              >
+                <Icon name="shield" type="feather" size={16} color={Colors.primaryBlue600} />
+                <Text style={[styles.quickButtonText, { color: Colors.primaryBlue700 }]}>Administrator</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.quickButton, { backgroundColor: Colors.success100 }]}
+                onPress={() => handleQuickFill('employee')}
+              >
+                <Icon name="user" type="feather" size={16} color={Colors.success600} />
+                <Text style={[styles.quickButtonText, { color: Colors.success700 }]}>Employee</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
 
         {/* Form Card */}
         <View style={styles.formCard}>
+          <Text style={styles.formTitle}>Secure Login</Text>
+          <Text style={styles.formSubtitle}>
+            Enter your company credentials to access your HR portal
+          </Text>
 
           <View style={styles.inputGroup}>
-            <View style={styles.inputLabelContainer}>
-              <Icon name="mail" type="feather" size={16} color={Colors.primaryBlue500} />
-              <Text style={styles.inputLabel}>Email Address</Text>
-            </View>
+            <Text style={styles.inputLabel}>Company Email</Text>
             <View style={styles.inputContainer}>
-              <Icon name="at-sign" type="feather" size={20} color={Colors.gray400} style={styles.inputIcon} />
+              <Icon name="mail" type="feather" size={20} color={Colors.gray400} style={styles.inputIcon} />
               <TextInput
                 style={styles.input}
-                placeholder="Enter your email"
+                placeholder="kennedy@gmail.com"
                 placeholderTextColor={Colors.gray400}
                 value={formData.email}
                 onChangeText={(text) => setFormData({ ...formData, email: text })}
                 autoCapitalize="none"
                 autoCorrect={false}
                 keyboardType="email-address"
+                autoComplete="email"
               />
             </View>
           </View>
 
           <View style={styles.inputGroup}>
-            <View style={styles.inputLabelContainer}>
-              <Icon name="lock" type="feather" size={16} color={Colors.primaryBlue500} />
-              <Text style={styles.inputLabel}>Password</Text>
-            </View>
+            <Text style={styles.inputLabel}>Password</Text>
             <View style={styles.inputContainer}>
-              <Icon name="key" type="feather" size={20} color={Colors.gray400} style={styles.inputIcon} />
+              <Icon name="lock" type="feather" size={20} color={Colors.gray400} style={styles.inputIcon} />
               <TextInput
                 style={styles.input}
                 placeholder="Enter your password"
@@ -127,6 +160,7 @@ export default function LoginScreen() {
                 secureTextEntry={!showPassword}
                 autoCapitalize="none"
                 autoCorrect={false}
+                autoComplete="password"
               />
               <TouchableOpacity
                 onPress={() => setShowPassword(!showPassword)}
@@ -143,7 +177,7 @@ export default function LoginScreen() {
           </View>
 
           <TouchableOpacity onPress={handleForgotPassword} style={styles.forgotPassword}>
-            <Icon name="help-circle" type="feather" size={16} color={Colors.primaryBlue500} />
+            <Icon name="key" type="feather" size={14} color={Colors.primaryBlue600} />
             <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
           </TouchableOpacity>
 
@@ -161,34 +195,58 @@ export default function LoginScreen() {
             ) : (
               <View style={styles.loginContainer}>
                 <Icon name="log-in" type="feather" size={20} color={Colors.white} style={styles.loginIcon} />
-                <Text style={styles.loginButtonText}>Sign In to Dashboard</Text>
-                <Icon name="chevron-right" type="feather" size={20} color={Colors.white} />
+                <Text style={styles.loginButtonText}>Sign In to HR Portal</Text>
               </View>
             )}
           </TouchableOpacity>
 
+          {/* Security Info */}
+          <View style={styles.securityInfo}>
+            <Icon name="shield" type="feather" size={16} color={Colors.success600} />
+            <Text style={styles.securityText}>
+              This is a secure company portal. Use only company-provided credentials.
+            </Text>
+          </View>
+        </View>
+
+        {/* Access Request Section */}
+        <View style={styles.accessContainer}>
+          <Text style={styles.accessTitle}>Need Access?</Text>
+          <Text style={styles.accessText}>
+            If you're an employee and don't have access, please contact your HR department.
+          </Text>
+          <TouchableOpacity 
+            style={styles.accessButton}
+            onPress={handleRequestAccess}
+          >
+            <Icon name="user-plus" type="feather" size={16} color={Colors.primaryBlue600} />
+            <Text style={styles.accessButtonText}>Request Access</Text>
+          </TouchableOpacity>
         </View>
 
         {/* Footer */}
         <View style={styles.footer}>
           <View style={styles.footerLinks}>
-            <TouchableOpacity>
+            <TouchableOpacity onPress={() => Alert.alert('Privacy Policy', 'Company privacy policy information')}>
               <Text style={styles.footerLink}>Privacy Policy</Text>
             </TouchableOpacity>
             <Text style={styles.footerSeparator}>•</Text>
-            <TouchableOpacity>
+            <TouchableOpacity onPress={() => Alert.alert('Terms', 'Terms of service for company HR system')}>
               <Text style={styles.footerLink}>Terms of Service</Text>
             </TouchableOpacity>
             <Text style={styles.footerSeparator}>•</Text>
-            <TouchableOpacity>
-              <Text style={styles.footerLink}>Support</Text>
+            <TouchableOpacity onPress={() => Alert.alert('Support', 'Contact IT support for assistance')}>
+              <Text style={styles.footerLink}>IT Support</Text>
             </TouchableOpacity>
           </View>
           
           <Text style={styles.footerText}>
-            © 2026 Elore HR Kenya. For assistance: hr@elorehub.co.ke
+            © 2026 Elore HR Kenya. Internal Use Only.
           </Text>
-          <Text style={styles.versionText}>v1.0.0 • Built for Kenya</Text>
+          <Text style={styles.footerText}>
+            For HR assistance: hr@elorehub.co.ke
+          </Text>
+          <Text style={styles.versionText}>v1.0.0 • Secure HR Portal</Text>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -214,6 +272,7 @@ const styles = StyleSheet.create({
     height: 300,
     borderRadius: 150,
     backgroundColor: Colors.primaryBlue50,
+    opacity: 0.8,
   },
   bottomCircle: {
     position: 'absolute',
@@ -223,15 +282,15 @@ const styles = StyleSheet.create({
     height: 400,
     borderRadius: 200,
     backgroundColor: Colors.success50,
+    opacity: 0.6,
   },
   header: {
     alignItems: 'center',
     marginTop: Layout.spacing.xl,
-    marginBottom: Layout.spacing.xl,
+    marginBottom: Layout.spacing.lg,
   },
   logoContainer: {
     alignItems: 'center',
-    marginBottom: Layout.spacing.lg,
   },
   logo: {
     width: 80,
@@ -240,95 +299,85 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.primaryBlue600,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: Layout.spacing.sm,
+    marginBottom: Layout.spacing.md,
     ...Layout.shadow.md,
   },
   logoText: {
-    fontSize: 32,
-    fontWeight: 'bold',
+    fontSize: 28,
+    fontWeight: '700',
     color: Colors.primaryBlue800,
     letterSpacing: -0.5,
-  },
-  logoSubtext: {
-    fontSize: 14,
-    color: Colors.success600,
-    fontWeight: '600',
-    backgroundColor: Colors.success50,
-    paddingHorizontal: Layout.spacing.md,
-    paddingVertical: Layout.spacing.xs,
-    borderRadius: Layout.borderRadius.full,
-    marginTop: 4,
-  },
-  welcomeText: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: Colors.textPrimary,
-    marginTop: Layout.spacing.lg,
-    textAlign: 'center',
+    marginBottom: 4,
   },
   subtitle: {
     fontSize: 16,
     color: Colors.textSecondary,
-    marginTop: Layout.spacing.xs,
-    textAlign: 'center',
+    fontWeight: '500',
   },
   quickLoginContainer: {
+    backgroundColor: Colors.gray50,
+    borderRadius: Layout.borderRadius.lg,
+    padding: Layout.spacing.lg,
     marginBottom: Layout.spacing.lg,
+    borderWidth: 1,
+    borderColor: Colors.gray200,
+    borderStyle: 'dashed',
   },
   quickLoginText: {
-    fontSize: 14,
+    fontSize: 13,
     color: Colors.textSecondary,
     marginBottom: Layout.spacing.sm,
+    fontStyle: 'italic',
   },
   quickLoginButtons: {
     flexDirection: 'row',
     gap: Layout.spacing.md,
   },
   quickButton: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     paddingHorizontal: Layout.spacing.md,
     paddingVertical: Layout.spacing.sm,
     borderRadius: Layout.borderRadius.md,
     gap: Layout.spacing.xs,
   },
   quickButtonText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '500',
   },
   formCard: {
     backgroundColor: Colors.white,
     borderRadius: Layout.borderRadius.xl,
     padding: Layout.spacing.xl,
-    marginBottom: Layout.spacing.xl,
+    marginBottom: Layout.spacing.lg,
     ...Layout.shadow.lg,
     borderWidth: 1,
     borderColor: Colors.borderLight,
   },
-  formHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: Layout.spacing.xl,
-    gap: Layout.spacing.sm,
-  },
   formTitle: {
-    fontSize: 20,
-    fontWeight: '600',
+    fontSize: 22,
+    fontWeight: '700',
     color: Colors.textPrimary,
+    marginBottom: Layout.spacing.xs,
+    textAlign: 'center',
+  },
+  formSubtitle: {
+    fontSize: 14,
+    color: Colors.textSecondary,
+    marginBottom: Layout.spacing.xl,
+    textAlign: 'center',
+    lineHeight: 20,
   },
   inputGroup: {
     marginBottom: Layout.spacing.lg,
   },
-  inputLabelContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: Layout.spacing.sm,
-    gap: Layout.spacing.xs,
-  },
   inputLabel: {
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: '600',
     color: Colors.textPrimary,
+    marginBottom: Layout.spacing.xs,
   },
   inputContainer: {
     flexDirection: 'row',
@@ -353,24 +402,26 @@ const styles = StyleSheet.create({
   forgotPassword: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'flex-end',
+    justifyContent: 'center',
     marginBottom: Layout.spacing.xl,
     gap: Layout.spacing.xs,
+    paddingVertical: Layout.spacing.sm,
   },
   forgotPasswordText: {
     color: Colors.primaryBlue600,
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: '600',
   },
   loginButton: {
     backgroundColor: Colors.primaryBlue600,
     paddingVertical: Layout.spacing.lg,
     borderRadius: Layout.borderRadius.lg,
-    marginBottom: Layout.spacing.xl,
-    ...Layout.shadow.sm,
+    marginBottom: Layout.spacing.lg,
+    ...Layout.shadow.md,
   },
   loginButtonDisabled: {
     backgroundColor: Colors.gray400,
+    opacity: 0.7,
   },
   loadingContainer: {
     flexDirection: 'row',
@@ -379,7 +430,13 @@ const styles = StyleSheet.create({
     gap: Layout.spacing.sm,
   },
   loadingIcon: {
-    animation: 'spin 1s linear infinite',
+    animationKeyframes: {
+      '0%': { transform: [{ rotate: '0deg' }] },
+      '100%': { transform: [{ rotate: '360deg' }] },
+    },
+    animationDuration: '1s',
+    animationTimingFunction: 'linear',
+    animationIterationCount: 'infinite',
   },
   loginContainer: {
     flexDirection: 'row',
@@ -388,72 +445,68 @@ const styles = StyleSheet.create({
     gap: Layout.spacing.sm,
   },
   loginIcon: {
-    marginRight: -4,
+    marginRight: Layout.spacing.xs,
   },
   loginButtonText: {
     color: Colors.white,
     fontSize: 18,
     fontWeight: '600',
   },
-  socialLogin: {
-    marginBottom: Layout.spacing.xl,
-  },
-  divider: {
+  securityInfo: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginVertical: Layout.spacing.lg,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: Colors.borderLight,
-  },
-  dividerText: {
-    paddingHorizontal: Layout.spacing.md,
-    color: Colors.textSecondary,
-    fontSize: 14,
-  },
-  socialButtons: {
-    flexDirection: 'row',
     justifyContent: 'center',
-    gap: Layout.spacing.md,
+    gap: Layout.spacing.sm,
+    paddingVertical: Layout.spacing.md,
+    backgroundColor: Colors.success50,
+    borderRadius: Layout.borderRadius.md,
+    paddingHorizontal: Layout.spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.success200,
   },
-  socialButton: {
+  securityText: {
+    fontSize: 12,
+    color: Colors.success800,
+    flex: 1,
+    textAlign: 'center',
+    fontWeight: '500',
+  },
+  accessContainer: {
+    backgroundColor: Colors.gray50,
+    borderRadius: Layout.borderRadius.lg,
+    padding: Layout.spacing.lg,
+    marginBottom: Layout.spacing.xl,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: Colors.gray200,
+  },
+  accessTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: Colors.textPrimary,
+    marginBottom: Layout.spacing.xs,
+  },
+  accessText: {
+    fontSize: 14,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+    marginBottom: Layout.spacing.md,
+    lineHeight: 20,
+  },
+  accessButton: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: Layout.spacing.sm,
     paddingHorizontal: Layout.spacing.lg,
     paddingVertical: Layout.spacing.md,
+    backgroundColor: Colors.white,
     borderRadius: Layout.borderRadius.lg,
     borderWidth: 1,
-    borderColor: Colors.border,
-    gap: Layout.spacing.sm,
+    borderColor: Colors.primaryBlue300,
   },
-  socialButtonText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: Colors.textPrimary,
-  },
-  registerContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: Layout.spacing.xl,
-    paddingTop: Layout.spacing.xl,
-    borderTopWidth: 1,
-    borderTopColor: Colors.borderLight,
-    gap: Layout.spacing.sm,
-  },
-  registerText: {
-    color: Colors.textSecondary,
-    fontSize: 16,
-  },
-  registerLink: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  registerLinkText: {
+  accessButtonText: {
     color: Colors.primaryBlue600,
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '600',
   },
   footer: {
@@ -484,17 +537,6 @@ const styles = StyleSheet.create({
     color: Colors.textTertiary,
     fontSize: 11,
     textAlign: 'center',
+    marginTop: Layout.spacing.sm,
   },
 });
-
-// Add this to your global styles or create a separate animation
-// For simple animation, you can use:
-const spinAnimation = {
-  animationKeyframes: {
-    '0%': { transform: [{ rotate: '0deg' }] },
-    '100%': { transform: [{ rotate: '360deg' }] },
-  },
-  animationDuration: '1s',
-  animationTimingFunction: 'linear',
-  animationIterationCount: 'infinite',
-};

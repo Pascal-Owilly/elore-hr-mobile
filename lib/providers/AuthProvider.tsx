@@ -1,5 +1,5 @@
 import React, { createContext, useContext, ReactNode, useState, useEffect } from 'react';
-import { router } from 'expo-router'; // CHANGE: Import router directly
+import { router } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
 import { api } from '@lib/api/client';
 import { API_ENDPOINTS } from '@lib/api/endpoints';
@@ -11,7 +11,7 @@ interface AuthContextType {
   isLoading: boolean;
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
-  logout: () => Promise<void>;
+  logout: () => Promise<{ success: boolean; error?: string }>; // Updated return type
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -70,9 +70,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       
       console.log('🔄 Navigation to app...');
       
-      // FIX: Navigate to app after successful login
-      // Use replace to prevent going back to login
-      router.replace('/app'); // Or '/(app)', '/(tabs)', depending on your setup
+      // Navigate to app after successful login
+      // Note: Make sure this matches your app route structure
+      // If your app is at /(app), use router.replace('/(app)')
+      // If your app is at /app, use router.replace('/app')
+      router.replace('/(app)');
       
       return { success: true };
       
@@ -97,10 +99,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
-  const logout = async () => {
+  const logout = async (): Promise<{ success: boolean; error?: string }> => {
     try {
       setIsLoading(true);
+      console.log('🚪 Starting logout process...');
       
+      // Clear all auth data from SecureStore
       await Promise.all([
         SecureStore.deleteItemAsync('access_token'),
         SecureStore.deleteItemAsync('refresh_token'),
@@ -108,17 +112,35 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         SecureStore.deleteItemAsync('employee_data'),
       ]);
       
+      // Clear React state
       setToken(null);
       setUser(null);
       setEmployee(null);
       
-      console.log('✅ Logout successful');
+      console.log('✅ Auth data cleared, redirecting to home page...');
       
-      // Navigate to login screen
-      router.replace('/auth/login');
+      // IMPORTANT: Redirect to ROOT INDEX PAGE (/)
+      // This will show your landing page with "Get Started", "Login", "Register" buttons
+      router.replace('/');
       
-    } catch (error) {
-      console.error('Logout error:', error);
+      console.log('🎉 Logout completed successfully');
+      return { success: true };
+      
+    } catch (error: any) {
+      console.error('❌ Logout error:', error);
+      
+      // Even if SecureStore fails, clear state and redirect
+      setToken(null);
+      setUser(null);
+      setEmployee(null);
+      
+      // Still try to redirect to home page
+      router.replace('/');
+      
+      return { 
+        success: false, 
+        error: error.message || 'Failed to logout completely'
+      };
     } finally {
       setIsLoading(false);
     }

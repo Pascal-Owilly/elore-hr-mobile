@@ -25,9 +25,9 @@ export default function Index() {
   }
 
   // Redirect if authenticated - BEFORE any other hooks
-  if (isAuthenticated) {
-    return <Redirect href="/app" />;
-  }
+if (isAuthenticated) {
+  return <Redirect href="/(app)" />;
+}
 
   // NOW declare all hooks - they will always run in this render path
   const logoScale = useSharedValue(0);

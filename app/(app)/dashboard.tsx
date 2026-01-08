@@ -35,16 +35,6 @@ export default function DashboardScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [currentTime, setCurrentTime] = useState(dayjs());
 
-  // // Fetch dashboard data
-  // const { data: dashboardData, refetch, isLoading } = useQuery({
-  //   queryKey: ['dashboard'],
-  //   queryFn: async () => {
-  //     const response = await api.get('/dashboard/');
-  //     return response.data;
-  //   },
-  // });
-
-
   const dashboardData = {
   monthly_hours: '0',
   leave_balance: '0',
@@ -94,12 +84,6 @@ const isLoading = false;
       console.error('Check-out failed:', error);
     }
   };
-
-  // Quick actions based on user role
-// In your DashboardScreen, update the quickActions arrays:
-
-// Quick actions based on user role
-// In your DashboardScreen, update the quickActions arrays:
 
 // Quick actions based on user role
 const quickActions = [
