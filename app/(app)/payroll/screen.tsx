@@ -157,7 +157,7 @@ export default function PayrollScreen() {
   };
 
   const handleViewPayslip = (payrollId: string) => {
-    router.push(`/app/payroll/${payrollId}`);
+    router.push(`/(app)/payroll/${payrollId}`);
   };
 
   const handleGeneratePayslip = async (payrollId: string) => {
@@ -333,7 +333,7 @@ export default function PayrollScreen() {
         >
           <TouchableOpacity 
             style={styles.actionCard}
-            onPress={() => router.push('/app/payroll/calculate')}
+            onPress={() => router.push('/(app)/payroll/calculate')}
           >
             <View style={[styles.actionIcon, { backgroundColor: '#e8f4fd' }]}>
               <Feather name="calculator" size={24} color={THEME_COLORS.primaryBlue} />
@@ -343,7 +343,7 @@ export default function PayrollScreen() {
           
           <TouchableOpacity 
             style={styles.actionCard}
-            onPress={() => router.push('/app/payroll/process')}
+            onPress={() => router.push('/(app)/payroll/process')}
           >
             <View style={[styles.actionIcon, { backgroundColor: '#ecfdf5' }]}>
               <Feather name="send" size={24} color={THEME_COLORS.success} />
@@ -353,7 +353,7 @@ export default function PayrollScreen() {
           
           <TouchableOpacity 
             style={styles.actionCard}
-            onPress={() => router.push('/app/payroll/reports')}
+            onPress={() => router.push('/(app)/payroll/reports')}
           >
             <View style={[styles.actionIcon, { backgroundColor: '#eff6ff' }]}>
               <Feather name="bar-chart-2" size={24} color={THEME_COLORS.info} />
@@ -363,7 +363,7 @@ export default function PayrollScreen() {
           
           <TouchableOpacity 
             style={styles.actionCard}
-            onPress={() => router.push('/app/payroll/salary-structure')}
+            onPress={() => router.push('/(app)/payroll/salary-structure')}
           >
             <View style={[styles.actionIcon, { backgroundColor: '#fefce8' }]}>
               <Feather name="dollar-sign" size={24} color={THEME_COLORS.warning} />
@@ -373,7 +373,7 @@ export default function PayrollScreen() {
           
           <TouchableOpacity 
             style={styles.actionCard}
-            onPress={() => router.push('/app/payroll/statutory')}
+            onPress={() => router.push('/(app)/payroll/statutory-structure')}
           >
             <View style={[styles.actionIcon, { backgroundColor: '#fef2f2' }]}>
               <Feather name="shield" size={24} color={THEME_COLORS.danger} />
@@ -383,7 +383,7 @@ export default function PayrollScreen() {
           
           <TouchableOpacity 
             style={styles.actionCard}
-            onPress={() => router.push('/app/payroll/settings')}
+            onPress={() => router.push('/(app)/payroll/settings')}
           >
             <View style={[styles.actionIcon, { backgroundColor: '#f5f3ff' }]}>
               <Feather name="settings" size={24} color={THEME_COLORS.primaryBlue} />
@@ -398,7 +398,7 @@ export default function PayrollScreen() {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>My Recent Payslips</Text>
-            <TouchableOpacity onPress={() => router.push('/app/payroll/history')}>
+            <TouchableOpacity onPress={() => router.push('/(app)/payroll/history')}>
               <Text style={styles.viewAllText}>View All</Text>
             </TouchableOpacity>
           </View>

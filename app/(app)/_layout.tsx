@@ -1,4 +1,4 @@
-// app/(app)/_layout.tsx - WITH MORE BOTTOM MARGIN
+// app/(app)/_layout.tsx
 import React from 'react';
 import { Tabs } from 'expo-router';
 import { View, Text, Platform } from 'react-native';
@@ -16,8 +16,8 @@ export default function AppLayout() {
   
   // For different platforms
   const adjustedBottomInset = Platform.select({
-    ios: Math.max(bottomInset, 34) + extraBottomMargin, // iPhone + extra margin
-    android: Math.max(bottomInset, 24) + extraBottomMargin, // Android + extra margin
+    ios: Math.max(bottomInset, 34) + extraBottomMargin,
+    android: Math.max(bottomInset, 24) + extraBottomMargin,
     default: Math.max(bottomInset, 24) + extraBottomMargin,
   });
   
@@ -29,10 +29,9 @@ export default function AppLayout() {
           backgroundColor: '#ffffff',
           borderTopColor: '#e5e7eb',
           borderTopWidth: 1,
-          height: 45 + adjustedBottomInset, // Increased height for more space
-          paddingBottom: adjustedBottomInset, // This pushes content up from bottom
+          height: 45 + adjustedBottomInset,
+          paddingBottom: adjustedBottomInset,
           paddingTop: 5,
-          // Add shadow/elevation
           shadowColor: '#000',
           shadowOffset: { width: 0, height: -2 },
           shadowOpacity: 0.1,
@@ -44,7 +43,7 @@ export default function AppLayout() {
         tabBarLabelStyle: {
           fontSize: 12,
           fontWeight: '500',
-          marginBottom: 4, // Add space between label and bottom
+          marginBottom: 4,
         },
       }}
     >
@@ -56,7 +55,7 @@ export default function AppLayout() {
             <View style={{ 
               alignItems: 'center', 
               justifyContent: 'center',
-              marginBottom: 4, // Add space between icon and label
+              marginBottom: 4,
             }}>
               <Text style={{ 
                 fontSize: 28, 
@@ -132,6 +131,28 @@ export default function AppLayout() {
         }}
       />
 
+      {/* Contracts is already properly configured as a nested group */}
+      <Tabs.Screen
+        name="contracts"
+        options={{
+          title: 'Contracts',
+          tabBarIcon: ({ color }) => (
+            <View style={{ 
+              alignItems: 'center', 
+              justifyContent: 'center',
+              marginBottom: 4,
+            }}>
+              <Text style={{ 
+                fontSize: 28, 
+                color,
+                textAlign: 'center',
+                lineHeight: 28,
+              }}>📄</Text>
+            </View>
+          ),
+        }}
+      />
+
       <Tabs.Screen
         name="notifications"
         options={{
@@ -153,10 +174,11 @@ export default function AppLayout() {
         }}
       />
 
+      {/* Settings Tab - includes biometric settings */}
       <Tabs.Screen
-        name="profile"
+        name="settings"
         options={{
-          title: 'Profile',
+          title: 'Settings',
           tabBarIcon: ({ color }) => (
             <View style={{ 
               alignItems: 'center', 
@@ -168,7 +190,7 @@ export default function AppLayout() {
                 color,
                 textAlign: 'center',
                 lineHeight: 28,
-              }}>👤</Text>
+              }}>⚙️</Text>
             </View>
           ),
         }}

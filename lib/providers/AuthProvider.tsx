@@ -3,6 +3,8 @@ import { router } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
 import { api } from '@lib/api/client';
 import { API_ENDPOINTS } from '@lib/api/endpoints';
+import { biometricService, BiometricType } from '@lib/services/BiometricService';
+
 
 interface AuthContextType {
   user: any;
@@ -10,9 +12,19 @@ interface AuthContextType {
   token: string | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-  login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
-  logout: () => Promise<{ success: boolean; error?: string }>; // Updated return type
+  biometricInfo: {
+    available: boolean;
+    type: BiometricType;
+    enabled: boolean;
+  };
+  login: (email: string, password: string, rememberBiometric?: boolean) => Promise<{ success: boolean; error?: string }>;
+  logout: () => Promise<{ success: boolean; error?: string }>;
+  biometricLogin: () => Promise<{ success: boolean; error?: string }>;
+  enableBiometric: (email: string, password: string) => Promise<boolean>;
+  disableBiometric: () => Promise<boolean>;
 }
+
+
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -21,9 +33,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [employee, setEmployee] = useState<any>(null);
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [biometricInfo, setBiometricInfo] = useState({
+    available: false,
+    type: 'none' as BiometricType,
+    enabled: false,
+  });
 
   useEffect(() => {
     loadAuthState();
+    checkBiometricCapability();
   }, []);
 
   const loadAuthState = async () => {
@@ -44,7 +62,16 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
-  const login = async (email: string, password: string) => {
+  const checkBiometricCapability = async () => {
+    try {
+      const info = await biometricService.hasBiometricCapability();
+      setBiometricInfo(info);
+    } catch (error) {
+      console.error('Error checking biometric capability:', error);
+    }
+  };
+
+  const login = async (email: string, password: string, rememberBiometric = false) => {
     try {
       setIsLoading(true);
       console.log('🔐 Attempting login for:', email);
@@ -68,12 +95,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setToken(access);
       setUser(user);
       
-      console.log('🔄 Navigation to app...');
+      // Ask to save biometric credentials if enabled and available
+      if (rememberBiometric && biometricInfo.available) {
+        await biometricService.showSetupDialog(email, password);
+        // Update biometric info
+        const info = await biometricService.hasBiometricCapability();
+        setBiometricInfo(info);
+      }
       
-      // Navigate to app after successful login
-      // Note: Make sure this matches your app route structure
-      // If your app is at /(app), use router.replace('/(app)')
-      // If your app is at /app, use router.replace('/app')
+      console.log('🔄 Navigation to app...');
       router.replace('/(app)');
       
       return { success: true };
@@ -99,6 +129,55 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
+  const biometricLogin = async () => {
+    try {
+      setIsLoading(true);
+      
+      // Authenticate with biometrics
+      const authenticated = await biometricService.authenticate();
+      if (!authenticated) {
+        return { 
+          success: false, 
+          error: 'Biometric authentication failed or was cancelled'
+        };
+      }
+      
+      // Get saved credentials
+      const credentials = await biometricService.getBiometricCredentials();
+      if (!credentials) {
+        return { 
+          success: false, 
+          error: 'No saved credentials found'
+        };
+      }
+      
+      // Use the credentials to login
+      return await login(credentials.email, credentials.password);
+      
+    } catch (error: any) {
+      console.error('❌ Biometric login error:', error);
+      return { 
+        success: false, 
+        error: error.message || 'Biometric login failed'
+      };
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const enableBiometric = async (email: string, password: string): Promise<boolean> => {
+    return await biometricService.saveBiometricCredentials(email, password);
+  };
+
+  const disableBiometric = async (): Promise<boolean> => {
+    const disabled = await biometricService.clearBiometricCredentials();
+    if (disabled) {
+      const info = await biometricService.hasBiometricCapability();
+      setBiometricInfo(info);
+    }
+    return disabled;
+  };
+
   const logout = async (): Promise<{ success: boolean; error?: string }> => {
     try {
       setIsLoading(true);
@@ -119,8 +198,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       
       console.log('✅ Auth data cleared, redirecting to home page...');
       
-      // IMPORTANT: Redirect to ROOT INDEX PAGE (/)
-      // This will show your landing page with "Get Started", "Login", "Register" buttons
       router.replace('/');
       
       console.log('🎉 Logout completed successfully');
@@ -134,7 +211,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setUser(null);
       setEmployee(null);
       
-      // Still try to redirect to home page
       router.replace('/');
       
       return { 
@@ -152,8 +228,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     token,
     isLoading,
     isAuthenticated: !!user && !!token,
+    biometricInfo,
     login,
     logout,
+    biometricLogin,
+    enableBiometric,
+    disableBiometric,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

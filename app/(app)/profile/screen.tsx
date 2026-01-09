@@ -280,6 +280,7 @@ const handleLogout = async () => {
           </TouchableOpacity>
         ))}
       </View>
+      
 
       <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
         <View style={styles.logoutButtonContent}>
@@ -291,7 +292,10 @@ const handleLogout = async () => {
       <View style={styles.versionContainer}>
         <Text style={styles.versionText}>Elore HR v1.0.0</Text>
       </View>
+
+      
     </ScrollView>
+    
   );
 }
 
