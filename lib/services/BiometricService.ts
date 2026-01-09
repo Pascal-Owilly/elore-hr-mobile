@@ -56,7 +56,7 @@ class BiometricService {
   async authenticate(): Promise<boolean> {
     try {
       const result = await LocalAuthentication.authenticateAsync({
-        promptMessage: 'Authenticate to access HR Portal',
+        promptMessage: 'Authenticate to access Elore HR',
         fallbackLabel: 'Use Password',
         disableDeviceFallback: false,
         cancelLabel: 'Cancel',
@@ -89,6 +89,7 @@ class BiometricService {
 
   /**
    * Get saved biometric credentials
+   * MODIFIED: Added catch block to handle decryption failures
    */
   async getBiometricCredentials(): Promise<BiometricCredentials | null> {
     try {
@@ -98,7 +99,9 @@ class BiometricService {
       }
       return null;
     } catch (error) {
-      console.error('Error getting biometric credentials:', error);
+      console.error('🚨 Corrupted biometric credentials detected. Wiping key.', error);
+      // If we can't read it, it's useless. Delete it to prevent future errors.
+      await SecureStore.deleteItemAsync(BiometricService.CREDENTIALS_STORAGE_KEY).catch(() => {});
       return null;
     }
   }
@@ -119,13 +122,15 @@ class BiometricService {
 
   /**
    * Check if biometric login is enabled
+   * MODIFIED: Added catch block to handle decryption failures
    */
   async isBiometricEnabled(): Promise<boolean> {
     try {
       const enabled = await SecureStore.getItemAsync(BiometricService.BIOMETRIC_STORAGE_KEY);
       return enabled === 'true';
     } catch (error) {
-      console.error('Error checking biometric status:', error);
+      console.error('🚨 Corrupted biometric status key. Resetting to false.', error);
+      await SecureStore.deleteItemAsync(BiometricService.BIOMETRIC_STORAGE_KEY).catch(() => {});
       return false;
     }
   }
@@ -152,11 +157,17 @@ class BiometricService {
     type: BiometricType;
     enabled: boolean;
   }> {
-    const available = await this.isBiometricAvailable();
-    const type = await this.getSupportedBiometrics();
-    const enabled = await this.isBiometricEnabled();
-    
-    return { available, type, enabled };
+    // We wrap this whole call to ensure the UI component calling it never crashes
+    try {
+        const available = await this.isBiometricAvailable();
+        const type = await this.getSupportedBiometrics();
+        const enabled = await this.isBiometricEnabled();
+        
+        return { available, type, enabled };
+    } catch (error) {
+        console.error('Failed to check capabilities:', error);
+        return { available: false, type: 'none', enabled: false };
+    }
   }
 
   /**
@@ -167,9 +178,12 @@ class BiometricService {
     password: string
   ): Promise<boolean> {
     return new Promise((resolve) => {
+      // Dynamic icon/type naming for the alert
+      const typeLabel = Platform.OS === 'ios' ? 'FaceID/TouchID' : 'Biometric';
+
       Alert.alert(
-        'Enable Fingerprint Login',
-        'Do you want to enable fingerprint login for faster access to your account?',
+        `Enable ${typeLabel} Login`,
+        `Do you want to enable ${typeLabel.toLowerCase()} login for faster access to your account?`,
         [
           {
             text: 'Not Now',
@@ -183,7 +197,7 @@ class BiometricService {
               if (saved) {
                 Alert.alert(
                   'Success',
-                  'Fingerprint login has been enabled. You can use it next time you sign in.'
+                  `${typeLabel} login has been enabled.`
                 );
               }
               resolve(saved);
@@ -200,8 +214,8 @@ class BiometricService {
   async showRemoveDialog(): Promise<boolean> {
     return new Promise((resolve) => {
       Alert.alert(
-        'Disable Fingerprint Login',
-        'Are you sure you want to disable fingerprint login?',
+        'Disable Biometric Login',
+        'Are you sure you want to disable biometric login?',
         [
           {
             text: 'Cancel',
@@ -210,14 +224,10 @@ class BiometricService {
           },
           {
             text: 'Disable',
-            style: 'destructive',
             onPress: async () => {
               const cleared = await this.clearBiometricCredentials();
               if (cleared) {
-                Alert.alert(
-                  'Success',
-                  'Fingerprint login has been disabled.'
-                );
+                Alert.alert('Success', 'Biometric login disabled.');
               }
               resolve(cleared);
             },

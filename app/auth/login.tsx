@@ -170,13 +170,13 @@ export default function LoginScreen() {
             <View style={styles.logo}>
               <Icon name="briefcase" type="feather" size={36} color={Colors.white} />
             </View>
-            <Text style={styles.logoText}>Elore HR Kenya</Text>
+            <Text style={styles.logoText}>Elore HR Login</Text>
             <Text style={styles.subtitle}>Employee Portal</Text>
           </View>
         </View>
 
         {/* Quick Login Buttons - Only shown in development */}
-        {__DEV__ && (
+        {/* {__DEV__ && (
           <View style={styles.quickLoginContainer}>
             <Text style={styles.quickLoginText}>Demo Accounts (Development Only)</Text>
             <View style={styles.quickLoginButtons}>
@@ -196,10 +196,10 @@ export default function LoginScreen() {
               </TouchableOpacity>
             </View>
           </View>
-        )}
+        )} */}
 
         {/* Biometric Quick Access - Subtle option at top */}
-        {biometricInfo.enabled && (
+        {/* {biometricInfo.enabled && (
           <TouchableOpacity
             style={styles.biometricQuickAccess}
             onPress={handleBiometricLogin}
@@ -218,16 +218,16 @@ export default function LoginScreen() {
             </View>
             <Icon name="chevron-right" type="feather" size={18} color={Colors.primaryBlue} />
           </TouchableOpacity>
-        )}
+        )} */}
 
         {/* Main Form Card */}
         <View style={styles.formCard}>
-          <View style={styles.formHeader}>
+          {/* <View style={styles.formHeader}>
             <Text style={styles.formTitle}>Secure Login</Text>
             <Text style={styles.formSubtitle}>
               Enter your credentials to access Elore HR portal
             </Text>
-          </View>
+          </View> */}
 
           <View style={styles.inputGroup}>
             <Text style={styles.inputLabel}>Email Address</Text>
@@ -381,7 +381,7 @@ export default function LoginScreen() {
           </View>
           
           <Text style={styles.footerText}>
-            © 2026 Elore HR Kenya • v1.0.0 • Secure HR Portal
+            © 2026 Elore HR Login • v1.0.0 • Secure HR Portal
           </Text>
         </View>
       </ScrollView>

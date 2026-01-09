@@ -20,7 +20,7 @@ import { Layout } from '@/constants/Layout';
 import { KenyaConstants } from '@constants/KenyaConstants';
 
 const THEME_COLORS = {
-  cream: '#e9ded3',
+  cream: '#e9ded3', 
   primaryBlue: '#0056b3',
   gold: '#deab63',
   white: '#ffffff',

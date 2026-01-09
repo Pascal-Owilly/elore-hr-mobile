@@ -23,21 +23,33 @@ function RootLayoutNav() {
   const segments = useSegments();
   const rootNavigationState = useRootNavigationState();
 
-  useEffect(() => {
-    if (isLoading || !rootNavigationState?.key) return;
+// app/_layout.tsx
 
-    const inAuthGroup = segments[0] === 'auth';
-    
-    if (isAuthenticated && inAuthGroup) {
-      // If authenticated and trying to access auth screens, redirect to app
-      console.log('🔄 Redirecting authenticated user to app');
-      router.replace('/(app)/dashboard'); // Fixed: Use (app)/dashboard
-    } else if (!isAuthenticated && !inAuthGroup) {
-      // If not authenticated and trying to access app screens, redirect to login
-      console.log('🔄 Redirecting unauthenticated user to login');
-      router.replace('/auth/login');
+useEffect(() => {
+  // 1. Wait until auth is loaded and navigation is ready
+  if (isLoading || !rootNavigationState?.key) return;
+
+  const inAuthGroup = segments[0] === 'auth';
+  const inAppGroup = segments[0] === '(app)';
+  const inAdminGroup = segments[0] === 'admin';
+  const isAtRoot = segments.length === 0 || (segments.length === 1 && segments[0] === 'index');
+
+  if (!isAuthenticated) {
+    // 2. If NOT logged in and trying to access protected groups, 
+    // force them back to the landing page (app/index.tsx)
+    if (inAppGroup || inAdminGroup) {
+      console.log('🛡️ Unauthenticated: Redirecting to Landing Page');
+      router.replace('/'); 
     }
-  }, [isAuthenticated, isLoading, segments, rootNavigationState?.key]);
+  } else {
+    // 3. If LOGGED IN and sitting on landing or auth pages, 
+    // move them into the app
+    if (isAtRoot || inAuthGroup) {
+      console.log('✅ Authenticated: Moving to Dashboard');
+      router.replace('/(app)/dashboard');
+    }
+  }
+}, [isAuthenticated, isLoading, segments, rootNavigationState?.key]);
 
   if (isLoading || !rootNavigationState?.key) {
     return (
@@ -67,13 +79,13 @@ function RootLayoutNav() {
       {/* Redirect index based on auth */}
       <Stack.Screen
         name="index"
-        options={{ headerShown: false }}
+        options={{ headerShown: true }}
       />
       
       {/* Auth Screens GROUP - REPLACE INDIVIDUAL SCREENS WITH THIS */}
       <Stack.Screen
         name="auth"
-        options={{ headerShown: false }}
+        options={{ headerShown: true }}
       />
       
       {/* App/Tabs Navigation */}
@@ -82,7 +94,6 @@ function RootLayoutNav() {
         options={{ headerShown: false }}
       />
       
-      {/* Modal */}
       <Stack.Screen
         name="modal"
         options={{

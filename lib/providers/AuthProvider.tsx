@@ -5,7 +5,6 @@ import { api } from '@lib/api/client';
 import { API_ENDPOINTS } from '@lib/api/endpoints';
 import { biometricService, BiometricType } from '@lib/services/BiometricService';
 
-
 interface AuthContextType {
   user: any;
   employee: any;
@@ -24,8 +23,6 @@ interface AuthContextType {
   disableBiometric: () => Promise<boolean>;
 }
 
-
-
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
@@ -40,25 +37,44 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   });
 
   useEffect(() => {
-    loadAuthState();
-    checkBiometricCapability();
+    initializeAuth();
   }, []);
 
+  /**
+   * Orchestrates the initial boot sequence: check biometrics and load auth state
+   */
+  const initializeAuth = async () => {
+    setIsLoading(true);
+    try {
+      // Run these in parallel, but handle their internal errors individually
+      await Promise.all([
+        loadAuthState(),
+        checkBiometricCapability()
+      ]);
+    } catch (error) {
+      console.error('Critical initialization error:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  /**
+   * Attempts to load tokens. If SecureStore fails to decrypt (common on Android),
+   * it wipes the corrupted keys so the app doesn't crash.
+   */
   const loadAuthState = async () => {
     try {
-      const [accessToken, userData] = await Promise.all([
-        SecureStore.getItemAsync('access_token'),
-        SecureStore.getItemAsync('user_data'),
-      ]);
+      const accessToken = await SecureStore.getItemAsync('access_token');
+      const userData = await SecureStore.getItemAsync('user_data');
       
       if (accessToken && userData) {
         setToken(accessToken);
         setUser(JSON.parse(userData));
       }
     } catch (error) {
-      console.error('Error loading auth state:', error);
-    } finally {
-      setIsLoading(false);
+      // This is where your [Error: Could not decrypt] is caught
+      console.error('🚨 SecureStore Decryption Failed. Wiping corrupted auth data.', error);
+      await clearAllAuthData(); 
     }
   };
 
@@ -68,159 +84,123 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setBiometricInfo(info);
     } catch (error) {
       console.error('Error checking biometric capability:', error);
+      // Fallback state if biometric check fails
+      setBiometricInfo({ available: false, type: 'none', enabled: false });
     }
   };
 
-  const login = async (email: string, password: string, rememberBiometric = false) => {
+  /**
+   * Helper to wipe all keys from SecureStore and reset React state
+   */
+  const clearAllAuthData = async () => {
     try {
-      setIsLoading(true);
-      console.log('🔐 Attempting login for:', email);
-      
-      const response = await api.post(API_ENDPOINTS.AUTH.LOGIN, {
-        email,
-        password,
-      });
-      
-      const { access, refresh, user } = response.data;
-      console.log('✅ Login successful for:', user.email);
-      
-      // Store tokens and user data
+      const keys = ['access_token', 'refresh_token', 'user_data', 'employee_data', 'biometric_enabled'];
+      await Promise.all(keys.map(key => SecureStore.deleteItemAsync(key).catch(() => {})));
+    } finally {
+      setToken(null);
+      setUser(null);
+      setEmployee(null);
+    }
+  };
+
+const login = async (email: string, password: string, rememberBiometric = false) => {
+  try {
+    setIsLoading(true);
+    const response = await api.post(API_ENDPOINTS.AUTH.LOGIN, { email, password });
+    const { access, refresh, user } = response.data;
+    
+    // ATTEMPT TO WRITE: 
+    // If this fails, the catch block will trigger the 'wipe and retry'
+    try {
       await Promise.all([
         SecureStore.setItemAsync('access_token', access),
         SecureStore.setItemAsync('refresh_token', refresh),
         SecureStore.setItemAsync('user_data', JSON.stringify(user)),
       ]);
+    } catch (storageError) {
+      console.warn("🔐 Storage write failed. Attempting to clear Keystore and retry...");
       
-      // Update state
-      setToken(access);
-      setUser(user);
+      // 1. Manually delete keys to reset the keychain state
+      await SecureStore.deleteItemAsync('access_token').catch(() => {});
+      await SecureStore.deleteItemAsync('refresh_token').catch(() => {});
+      await SecureStore.deleteItemAsync('user_data').catch(() => {});
       
-      // Ask to save biometric credentials if enabled and available
-      if (rememberBiometric && biometricInfo.available) {
-        await biometricService.showSetupDialog(email, password);
-        // Update biometric info
-        const info = await biometricService.hasBiometricCapability();
-        setBiometricInfo(info);
-      }
-      
-      console.log('🔄 Navigation to app...');
-      router.replace('/(app)');
-      
-      return { success: true };
-      
-    } catch (error: any) {
-      console.error('❌ Login error:', error);
-      
-      let errorMessage = 'Login failed. Please try again.';
-      if (error.response?.status === 401) {
-        errorMessage = 'Invalid email or password';
-      } else if (error.response?.status === 400) {
-        errorMessage = 'Invalid credentials';
-      } else if (error.response?.data?.detail) {
-        errorMessage = error.response.data.detail;
-      }
-      
-      return { 
-        success: false, 
-        error: errorMessage
-      };
-    } finally {
-      setIsLoading(false);
+      // 2. Retry the write once more
+      await SecureStore.setItemAsync('access_token', access);
+      await SecureStore.setItemAsync('refresh_token', refresh);
+      await SecureStore.setItemAsync('user_data', JSON.stringify(user));
     }
-  };
+    
+    setToken(access);
+    setUser(user);
+    
+    if (rememberBiometric && biometricInfo.available) {
+      await biometricService.showSetupDialog(email, password);
+      await checkBiometricCapability();
+    }
+    
+    router.replace('/(app)');
+    return { success: true };
+    
+  } catch (error: any) {
+    console.error('❌ Login error:', error);
+    return { success: false, error: "Security storage error. Please restart the app or clear app data." };
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   const biometricLogin = async () => {
     try {
       setIsLoading(true);
-      
-      // Authenticate with biometrics
       const authenticated = await biometricService.authenticate();
+      
       if (!authenticated) {
-        return { 
-          success: false, 
-          error: 'Biometric authentication failed or was cancelled'
-        };
+        return { success: false, error: 'Biometric authentication failed' };
       }
       
-      // Get saved credentials
       const credentials = await biometricService.getBiometricCredentials();
       if (!credentials) {
-        return { 
-          success: false, 
-          error: 'No saved credentials found'
-        };
+        return { success: false, error: 'No saved credentials found' };
       }
       
-      // Use the credentials to login
       return await login(credentials.email, credentials.password);
-      
     } catch (error: any) {
       console.error('❌ Biometric login error:', error);
-      return { 
-        success: false, 
-        error: error.message || 'Biometric login failed'
-      };
+      return { success: false, error: 'Biometric login failed' };
     } finally {
       setIsLoading(false);
     }
   };
 
   const enableBiometric = async (email: string, password: string): Promise<boolean> => {
-    return await biometricService.saveBiometricCredentials(email, password);
+    const success = await biometricService.saveBiometricCredentials(email, password);
+    if (success) await checkBiometricCapability();
+    return success;
   };
 
   const disableBiometric = async (): Promise<boolean> => {
     const disabled = await biometricService.clearBiometricCredentials();
-    if (disabled) {
-      const info = await biometricService.hasBiometricCapability();
-      setBiometricInfo(info);
-    }
+    if (disabled) await checkBiometricCapability();
     return disabled;
   };
 
-  const logout = async (): Promise<{ success: boolean; error?: string }> => {
-    try {
-      setIsLoading(true);
-      console.log('🚪 Starting logout process...');
-      
-      // Clear all auth data from SecureStore
-      await Promise.all([
-        SecureStore.deleteItemAsync('access_token'),
-        SecureStore.deleteItemAsync('refresh_token'),
-        SecureStore.deleteItemAsync('user_data'),
-        SecureStore.deleteItemAsync('employee_data'),
-      ]);
-      
-      // Clear React state
-      setToken(null);
-      setUser(null);
-      setEmployee(null);
-      
-      console.log('✅ Auth data cleared, redirecting to home page...');
-      
-      router.replace('/');
-      
-      console.log('🎉 Logout completed successfully');
-      return { success: true };
-      
-    } catch (error: any) {
-      console.error('❌ Logout error:', error);
-      
-      // Even if SecureStore fails, clear state and redirect
-      setToken(null);
-      setUser(null);
-      setEmployee(null);
-      
-      router.replace('/');
-      
-      return { 
-        success: false, 
-        error: error.message || 'Failed to logout completely'
-      };
-    } finally {
-      setIsLoading(false);
-    }
-  };
+const logout = async (): Promise<{ success: boolean; error?: string }> => {
+  try {
+    setIsLoading(true);
+    await clearAllAuthData(); 
+    // REMOVE router.replace('/') from here
+    // Let your AuthProvider state update trigger the Layout redirect
+    return { success: true };
+  } catch (error: any) {
+    console.error('❌ Logout error:', error);
+    setToken(null);
+    setUser(null);
+    return { success: false, error: error.message };
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   const value: AuthContextType = {
     user,
@@ -241,8 +221,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
+  if (!context) throw new Error('useAuth must be used within an AuthProvider');
   return context;
 };

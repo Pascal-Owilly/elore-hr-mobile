@@ -8,7 +8,7 @@ import { Icon } from '@components/ui/Icon';
 export default function RegisterScreen() {
   return (
     <View style={styles.container}>
-      {/* Header */}
+      {/* Header - Stays fixed at the top */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
           <Icon name="arrow-back" size={24} color={Colors.primaryBlue600} />
@@ -16,14 +16,17 @@ export default function RegisterScreen() {
         <Text style={styles.title}>Account Access</Text>
       </View>
       
-      {/* Main Content - Centered */}
-      <View style={styles.content}>
+      {/* Main Content - Scrollable */}
+      <ScrollView 
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+      >
         {/* Icon */}
         <View style={styles.iconContainer}>
           <Icon name="shield-lock" size={60} color={Colors.primaryBlue500} />
         </View>
         
-        {/* Main Message - Simple and Clear */}
+        {/* Main Message */}
         <View style={styles.messageBox}>
           <Text style={styles.messageTitle}>System Access Information</Text>
           
@@ -49,12 +52,12 @@ export default function RegisterScreen() {
             <View style={styles.messageRow}>
               <Icon name="mail" size={20} color={Colors.gold600} style={styles.messageIcon} />
               <Text style={styles.messageText}>
-                You should receive your login details via your company email.
+                You should receive your login details via email.
               </Text>
             </View>
           </View>
           
-          {/* Contact Section - Only for issues */}
+          {/* Contact Section */}
           <View style={styles.contactSection}>
             <Text style={styles.contactTitle}>Need Assistance?</Text>
             <Text style={styles.contactText}>
@@ -63,7 +66,6 @@ export default function RegisterScreen() {
             </Text>
             <View style={styles.contactDetails}>
               <Text style={styles.contactDetail}>📧 hr@elorehub.co.ke</Text>
-              <Text style={styles.contactDetail}>📍 HR Department, 2nd Floor</Text>
             </View>
           </View>
         </View>
@@ -81,7 +83,7 @@ export default function RegisterScreen() {
         <Text style={styles.footerNote}>
           For security purposes, all account creation is managed internally by HR.
         </Text>
-      </View>
+      </ScrollView>
     </View>
   );
 }
@@ -99,6 +101,8 @@ const styles = StyleSheet.create({
     paddingBottom: Layout.spacing.lg,
     borderBottomWidth: 1,
     borderBottomColor: Colors.borderLight,
+    backgroundColor: Colors.white, // Ensure header is opaque
+    zIndex: 10,
   },
   backButton: {
     marginRight: Layout.spacing.md,
@@ -108,11 +112,12 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: Colors.primaryBlue800,
   },
-  content: {
-    flex: 1,
+  scrollContent: {
     paddingHorizontal: Layout.spacing.xl,
     paddingTop: Layout.spacing.xl,
+    paddingBottom: Layout.spacing.xxl, // Added extra padding for bottom scroll room
     alignItems: 'center',
+    flexGrow: 1, // Ensures content can center even if screen is large
   },
   iconContainer: {
     width: 100,
@@ -205,10 +210,6 @@ const styles = StyleSheet.create({
     borderRadius: Layout.borderRadius.lg,
     width: '100%',
     marginBottom: Layout.spacing.xl,
-    shadowColor: Colors.primaryBlue500,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
     elevation: 3,
   },
   buttonIcon: {

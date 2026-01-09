@@ -15,21 +15,21 @@ import Animated, {
 export default function Index() {
   const { isAuthenticated, isLoading } = useAuth();
 
-  // Show loading indicator FIRST
+  // 1. Show loading indicator while checking auth state
   if (isLoading) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+      <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={Colors.primaryBlue600} />
       </View>
     );
   }
 
-  // Redirect if authenticated - BEFORE any other hooks
-if (isAuthenticated) {
-  return <Redirect href="/(app)" />;
-}
+  // 2. If already logged in, send them straight to the dashboard
+  if (isAuthenticated) {
+    return <Redirect href="/(app)/dashboard" />;
+  }
 
-  // NOW declare all hooks - they will always run in this render path
+  // Animation values
   const logoScale = useSharedValue(0);
   const logoOpacity = useSharedValue(0);
   const titleTranslateY = useSharedValue(50);
@@ -44,10 +44,12 @@ if (isAuthenticated) {
     buttonsOpacity.value = withSequence(withDelay(400, withSpring(1, { damping: 15 })));
   }, []);
 
+  // Navigation handlers
   const handleGetStarted = () => router.push('/auth/login');
   const handleLogin = () => router.push('/auth/login');
   const handleRegister = () => router.push('/auth/register');
 
+  // Animated styles
   const logoStyle = useAnimatedStyle(() => ({
     transform: [{ scale: logoScale.value }],
     opacity: logoOpacity.value,
@@ -64,36 +66,35 @@ if (isAuthenticated) {
 
   return (
     <View style={styles.container}>
-      {/* Kenya Flag Header - Stays at top */}
+      {/* Kenya Flag Header */}
       <View style={styles.flagHeader}>
-        <View style={[styles.flagStrip, { backgroundColor: Colors.kenyaBlack || '#000000' }]} />
-        <View style={[styles.flagStrip, { backgroundColor: Colors.kenyaRed || '#BB0000' }]} />
-        <View style={[styles.flagStrip, { backgroundColor: Colors.kenyaGreen || '#006600' }]} />
-        <View style={[styles.flagStrip, { backgroundColor: Colors.kenyaWhite || '#FFFFFF' }]} />
+        <View style={[styles.flagStrip, { backgroundColor: '#000000' }]} />
+        <View style={[styles.flagStrip, { backgroundColor: '#BB0000' }]} />
+        <View style={[styles.flagStrip, { backgroundColor: '#006600' }]} />
       </View>
 
       <ScrollView 
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Logo */}
+        {/* Logo Section - Now filling the card */}
         <Animated.View style={[styles.logoContainer, logoStyle]}>
           <View style={styles.logoBackground}>
             <Image
               source={require('@assets/images/logo.png')}
               style={styles.logo}
-              resizeMode="contain"
+              resizeMode="cover" // Fills the entire circular area
             />
           </View>
         </Animated.View>
 
-        {/* Title */}
-        <Animated.View style={[styles.titleContainer, titleStyle]}>
-          <Text style={styles.title}>Elore HR </Text>
+        {/* Title Section */}
+        {/* <Animated.View style={[styles.titleContainer, titleStyle]}>
+          <Text style={styles.title}>Elore HR</Text>
           <Text style={styles.subtitle}>Workforce, simplified.</Text>
-        </Animated.View>
+        </Animated.View> */}
 
-        {/* Buttons */}
+        {/* Buttons Section */}
         <Animated.View style={[styles.buttonContainer, buttonsStyle]}>
           <TouchableOpacity
             style={[styles.button, styles.primaryButton]}
@@ -117,57 +118,23 @@ if (isAuthenticated) {
               onPress={handleRegister}
               activeOpacity={0.8}
             >
-              <Text style={styles.outlineButtonText}>Register</Text>
+              <Text style={styles.outlineButtonText}>Access Info</Text>
             </TouchableOpacity>
           </View>
         </Animated.View>
 
-        {/* Features */}
+        {/* Features Grid */}
         <Animated.View style={[styles.featuresContainer, buttonsStyle]}>
           <View style={styles.featuresRow}>
-            <View style={styles.feature}>
-              <View style={[styles.featureIcon, { backgroundColor: Colors.primaryBlue100 }]}>
-                <Text style={styles.featureIconText}>📍</Text>
-              </View>
-              <Text style={styles.featureText}>Geofenced Attendance</Text>
-            </View>
-
-            <View style={styles.feature}>
-              <View style={[styles.featureIcon, { backgroundColor: Colors.gold100 }]}>
-                <Text style={styles.featureIconText}>💰</Text>
-              </View>
-              <Text style={styles.featureText}>M-Pesa Payroll</Text>
-            </View>
-
-            <View style={styles.feature}>
-              <View style={[styles.featureIcon, { backgroundColor: Colors.success100 }]}>
-                <Text style={styles.featureIconText}>📄</Text>
-              </View>
-              <Text style={styles.featureText}>E-Sign Contracts</Text>
-            </View>
+            <FeatureItem icon="📍" label="Geofenced Attendance" color={Colors.primaryBlue100} />
+            <FeatureItem icon="💰" label="M-Pesa Payroll" color={Colors.gold100} />
+            <FeatureItem icon="📄" label="E-Sign Contracts" color={Colors.success100} />
           </View>
 
           <View style={styles.featuresRow}>
-            <View style={styles.feature}>
-              <View style={[styles.featureIcon, { backgroundColor: Colors.info100 }]}>
-                <Text style={styles.featureIconText}>📋</Text>
-              </View>
-              <Text style={styles.featureText}>Leave Management</Text>
-            </View>
-
-            <View style={styles.feature}>
-              <View style={[styles.featureIcon, { backgroundColor: Colors.warning100 }]}>
-                <Text style={styles.featureIconText}>📊</Text>
-              </View>
-              <Text style={styles.featureText}>Reports & Analytics</Text>
-            </View>
-
-            <View style={styles.feature}>
-              <View style={[styles.featureIcon, { backgroundColor: Colors.violet100 }]}>
-                <Text style={styles.featureIconText}>📱</Text>
-              </View>
-              <Text style={styles.featureText}>Offline Attendance</Text>
-            </View>
+            <FeatureItem icon="📋" label="Leave Management" color={Colors.info100} />
+            <FeatureItem icon="📊" label="Reports & Analytics" color={Colors.warning100} />
+            <FeatureItem icon="📱" label="Offline Mode" color={Colors.violet100} />
           </View>
         </Animated.View>
 
@@ -183,13 +150,31 @@ if (isAuthenticated) {
   );
 }
 
+// Helper component for cleaner code
+function FeatureItem({ icon, label, color }: { icon: string; label: string; color: string }) {
+  return (
+    <View style={styles.feature}>
+      <View style={[styles.featureIcon, { backgroundColor: color }]}>
+        <Text style={styles.featureIconText}>{icon}</Text>
+      </View>
+      <Text style={styles.featureText}>{label}</Text>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.white,
+    backgroundColor: '#e9ded3',
+
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   flagHeader: {
-    height: 8,
+    height: 6,
     flexDirection: 'row',
   },
   flagStrip: {
@@ -206,116 +191,123 @@ const styles = StyleSheet.create({
     marginBottom: Layout.spacing.xl,
   },
   logoBackground: {
-    width: 120,
-    height: 120,
-    borderRadius: Layout.borderRadius.xl,
+    width: 150,
+    height: 150,
+    borderRadius: 85, // Circular
     backgroundColor: Colors.primaryBlue50,
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 3,
-    borderColor: Colors.primaryBlue200,
+    borderWidth: 4,
+    borderColor: '#deab63',
+
+    overflow: 'hidden', // Required for image to cover
   },
   logo: {
-    width: 100,
-    height: 100,
+    width: '100%',
+    height: '100%',
   },
   titleContainer: {
     alignItems: 'center',
     marginBottom: Layout.spacing.xl,
   },
   title: {
-    fontSize: Layout.fontSize['4xl'],
-    fontWeight: 'bold',
+    fontSize: 36,
+    fontWeight: '800',
     color: Colors.primaryBlue800,
     textAlign: 'center',
+    letterSpacing: -1,
   },
   subtitle: {
-    fontSize: Layout.fontSize.md,
+    fontSize: 16,
     color: Colors.textSecondary,
     textAlign: 'center',
+    marginTop: 4,
   },
   buttonContainer: {
     width: '100%',
     marginBottom: Layout.spacing.xl,
   },
   button: {
-    paddingVertical: Layout.spacing.md,
-    borderRadius: Layout.borderRadius.lg,
+    paddingVertical: 16,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
   },
   primaryButton: {
-    backgroundColor: Colors.primaryBlue600,
+    backgroundColor: '#0056b3',
     marginBottom: Layout.spacing.md,
   },
   primaryButtonText: {
     color: Colors.white,
-    fontSize: Layout.fontSize.lg,
-    fontWeight: '600',
+    fontSize: 18,
+    fontWeight: '700',
   },
   buttonRow: {
     flexDirection: 'row',
-    gap: Layout.spacing.md,
+    gap: 12,
   },
   secondaryButton: {
     flex: 1,
     backgroundColor: Colors.gold500,
   },
   secondaryButtonText: {
-    color: Colors.gray900,
-    fontWeight: '600',
+    color: '#ffffff',
+    fontWeight: '700',
   },
   outlineButton: {
     flex: 1,
     borderWidth: 2,
-    borderColor: Colors.primaryBlue500,
+    borderColor: '#0056b3',
   },
   outlineButtonText: {
-    color: Colors.primaryBlue600,
-    fontWeight: '600',
+    color: '#deab63',
+    fontWeight: '700',
   },
   featuresContainer: {
     width: '100%',
-    marginBottom: Layout.spacing.xl,
+    marginVertical: 20,
   },
   featuresRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     width: '100%',
-    marginBottom: Layout.spacing.lg,
+    marginBottom: 20,
   },
   feature: {
     alignItems: 'center',
     flex: 1,
   },
   featureIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: Layout.borderRadius.lg,
+    width: 50,
+    height: 50,
+    borderRadius: 15,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: Layout.spacing.sm,
+    marginBottom: 8,
   },
   featureIconText: {
     fontSize: 24,
   },
   featureText: {
-    fontSize: 12,
+    fontSize: 11,
+    fontWeight: '500',
     color: Colors.textSecondary,
     textAlign: 'center',
-    paddingHorizontal: Layout.spacing.xs,
+    paddingHorizontal: 4,
   },
   footer: {
     alignItems: 'center',
     marginTop: 'auto',
+    paddingTop: 20,
   },
   footerText: {
-    fontSize: 12,
+    fontSize: 11,
     color: Colors.textTertiary,
     textAlign: 'center',
   },
   versionText: {
     fontSize: 10,
     color: Colors.gray400,
+    marginTop: 4,
   },
 });

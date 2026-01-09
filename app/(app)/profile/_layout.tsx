@@ -8,7 +8,7 @@ export default function ProfileLayout() {
         name="screen"  // Change from "index" to "screen"
         options={{ 
           headerTitle: 'Profile',
-          headerShown: true 
+          headerShown: false 
         }}
       />
     </Stack>
